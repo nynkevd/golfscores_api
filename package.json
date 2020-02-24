@@ -1,0 +1,25 @@
+{
+  "name": "golfscores_api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nynkevd/golfscores_api.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nynkevd/golfscores_api/issues"
+  },
+  "homepage": "https://github.com/nynkevd/golfscores_api#readme",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "express": "^4.17.1",
+    "mongoose": "^5.9.2",
+    "mongoose-unique-validator": "^2.0.3"
+  }
+}
