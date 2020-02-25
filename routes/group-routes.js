@@ -22,6 +22,12 @@ router.post("/addadmin", [
     check('user').not().isEmpty()
 ], groupController.addAdminToGroup);
 
+router.delete('/removeplayer', [
+    check('player').not().isEmpty(),
+    check('group').not().isEmpty(),
+    check('user').not().isEmpty()
+], groupController.removePlayerFromGroup);
+
 // router.post("/login", [
 //     check('username').isLength({min: 5}),
 //     check('password').isLength({min: 6})
