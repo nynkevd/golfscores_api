@@ -2,7 +2,11 @@ const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 
+const userRoutes = require('./routes/user-routes');
+
 const app = express();
+
+app.get('/', (req, res) => res.send('API Running'));
 
 app.use(bodyParser.json());
 
@@ -14,13 +18,15 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use('/api/user');
+app.use("/api/user", userRoutes);
 
 mongoose
-    .connect(`mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@udemy-drnvg.azure.mongodb.net/${process.env.DB_DATABASE}?retryWrites=true&w=majority`)
+    .connect(`mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@golfscores-97j88.azure.mongodb.net/${process.env.DB_DATABASE}?retryWrites=true&w=majority`)
     .then(() => {
-        app.listen(process.env.PORT || 5000);
+        app.listen(5000, "localhost", () => {
+            console.log("Running")
+        });
     })
-    .catch(() => {
+    .catch((err) => {
         console.log("Something went wrong!")
     });

@@ -1,0 +1,8 @@
+{
+  "env": {
+    "DB_USER": "golfscoreadmin",
+    "DB_PASSWORD": "cv6cYxDiqBZtz59L",
+    "DB_DATABASE": "golfscore_dev",
+    "JWT_KEY": "J87AYwuEHu5DBswU"
+  }
+}
