@@ -56,18 +56,18 @@ const signup = async (req, res, next) => {
     try {
         existingUser = await User.findOne({username: username});
     } catch (e) {
-        return next(new HttpError("Could not perform call", 500));
+        return next(new HttpError("Could not create user, please try again", 500));
     }
 
     if (existingUser) {
-        return next(new HttpError("User already exists", 422));
+        return next(new HttpError("This user already exists, please choose a different username", 422));
     }
 
     let hashedPassword;
     try {
         hashedPassword = await bcrypt.hash(password, 12);
     } catch (e) {
-        return next(new HttpError("Could not create user", 500));
+        return next(new HttpError("Could not create user, please try again", 500));
     }
 
     const createdUser = new User({
@@ -80,7 +80,7 @@ const signup = async (req, res, next) => {
     try {
         await createdUser.save();
     } catch (e) {
-        return next(new HttpError("Could not create user", 500));
+        return next(new HttpError("Could not create user, please try again", 500));
     }
 
     let token;
@@ -88,7 +88,7 @@ const signup = async (req, res, next) => {
         token = jwt.sign(
             {userId: createdUser.id, username: createdUser.username},
             process.env.JWT_KEY,
-            {expiresIn: '7d'});
+            {expiresIn: '10s'});
     } catch (err) {
         return next(new HttpError("Signing up failed", 500));
     }
