@@ -210,8 +210,8 @@ const removeAdmin = async (req, res, next) => {
     }
 
     try {
-        const selectedUser = await User.findById(admin);
-        selectedGroup.admins.pull(selectedUser);
+        const selectedAdmin = await User.findById(admin);
+        selectedGroup.admins.pull(selectedAdmin);
         selectedGroup.save();
     } catch (e) {
         return next(new HttpError("Cannot remove the provided admin, please try again.", 500));
@@ -221,8 +221,52 @@ const removeAdmin = async (req, res, next) => {
 
 };
 
+const removeGroup = async (req, res, next) => {
+    await validateRequest(req, next);
+
+    const {group, user} = req.body;
+
+    let selectedGroup;
+    try {
+        selectedGroup = await Group.findById(group);
+    } catch (e) {
+        return next(new HttpError("Could not remove the group, please try again.", 500));
+    }
+
+    let selectedUser;
+    try {
+        selectedUser = await User.findById(user);
+    } catch (e) {
+        return next(new HttpError("Could not remove the group, please try again.", 500));
+    }
+
+    if (!selectedGroup['admins'].includes(selectedUser.id)) {
+        return next(new HttpError("Not permitted to remove this group.", 403));
+    }
+
+    let players = selectedGroup['players'];
+    for (const player of players) {
+        try {
+            const thisPlayer = await User.findById(player);
+            thisPlayer.groups.pull(selectedGroup);
+            await thisPlayer.save();
+        } catch (e) {
+            return next(new HttpError("Could not remove the group, please try again.", 500));
+        }
+    }
+
+    try {
+        await Group.findByIdAndDelete(group);
+    } catch (err) {
+        return next(new HttpError("Could not remove the group, please try again.", 500));
+    }
+
+    res.status(201).json({message: "Succesfully deleted the group"});
+};
+
 exports.createGroup = createGroup;
 exports.addPlayerToGroup = addPlayerToGroup;
 exports.addAdminToGroup = addAdminToGroup;
 exports.removePlayer = removePlayer;
 exports.removeAdmin = removeAdmin;
+exports.removeGroup = removeGroup;

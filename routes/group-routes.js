@@ -34,4 +34,9 @@ router.delete('/removeadmin', [
     check('user').not().isEmpty()
 ], groupController.removeAdmin);
 
+router.delete('/remove', [
+    check('group').not().isEmpty(),
+    check('user').not().isEmpty()
+], groupController.removeGroup);
+
 module.exports = router;
