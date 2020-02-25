@@ -26,11 +26,12 @@ router.delete('/removeplayer', [
     check('player').not().isEmpty(),
     check('group').not().isEmpty(),
     check('user').not().isEmpty()
-], groupController.removePlayerFromGroup);
+], groupController.removePlayer);
 
-// router.post("/login", [
-//     check('username').isLength({min: 5}),
-//     check('password').isLength({min: 6})
-// ], groupController.login);
+router.delete('/removeadmin', [
+    check('admin').not().isEmpty(),
+    check('group').not().isEmpty(),
+    check('user').not().isEmpty()
+], groupController.removeAdmin);
 
 module.exports = router;

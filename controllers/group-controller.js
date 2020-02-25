@@ -43,7 +43,7 @@ const createGroup = async (req, res, next) => {
         return next(new HttpError("Creating group failed, please try again", 500));
     }
 
-    res.status(201).json({group: createdGroup});
+    res.status(201).json({message: "Succesfully created a new group"});
 };
 
 const addPlayerToGroup = async (req, res, next) => {
@@ -86,7 +86,7 @@ const addPlayerToGroup = async (req, res, next) => {
         return next(new HttpError("Adding players failed, please try again", 500));
     }
 
-    res.status(201).json({message: "Success"});
+    res.status(201).json({message: "Successfully added a player"});
 };
 
 const addAdminToGroup = async (req, res, next) => {
@@ -131,13 +131,13 @@ const addAdminToGroup = async (req, res, next) => {
     res.status(201).json({message: "Successfully added an admin"});
 };
 
-const removePlayerFromGroup = async (req, res, next) => {
+const removePlayer = async (req, res, next) => {
     await validateRequest(req, next);
 
     const {player, group, user} = req.body;
 
     if (player === user) {
-        return next(new HttpError("Cannot remove yourself ", 500));
+        return next(new HttpError("Cannot remove yourself", 500));
     }
 
     let selectedGroup;
@@ -155,7 +155,6 @@ const removePlayerFromGroup = async (req, res, next) => {
     }
 
     const admins = selectedGroup['admins'];
-    console.log(admins);
     let isAdmin = false;
     if (!admins.includes(user)) {
         return next(new HttpError("No permission", 403));
@@ -168,7 +167,6 @@ const removePlayerFromGroup = async (req, res, next) => {
         return next(new HttpError("The provided player does not exist in this group", 500));
     }
 
-    //Removing user from group
     try {
         selectedGroup.players.pull(selectedPlayer);
         if (isAdmin) {
@@ -186,7 +184,45 @@ const removePlayerFromGroup = async (req, res, next) => {
     res.status(201).json({message: "Succesfully removed user"});
 };
 
+const removeAdmin = async (req, res, next) => {
+    await validateRequest(req, next);
+
+    const {admin, group, user} = req.body;
+
+    if (admin === user) {
+        return next(new HttpError("Cannot remove yourself", 500));
+    }
+
+    let selectedGroup;
+    try {
+        selectedGroup = await Group.findById(group);
+    } catch (e) {
+        return next(new HttpError("Removing admin permissions failed, please try again.", 500));
+    }
+
+    const admins = selectedGroup['admins'];
+    if (!admins.includes(admin)) {
+        return next(new HttpError("The provided user is not an admin.", 500));
+    }
+
+    if (admins.length === 1) {
+        return next(new HttpError("Cannot remove this admin, a group needs at least 1 admin.", 500));
+    }
+
+    try {
+        const selectedUser = await User.findById(admin);
+        selectedGroup.admins.pull(selectedUser);
+        selectedGroup.save();
+    } catch (e) {
+        return next(new HttpError("Cannot remove the provided admin, please try again.", 500));
+    }
+
+    res.status(201).json({message: "Succesfully removed admin of group"});
+
+};
+
 exports.createGroup = createGroup;
 exports.addPlayerToGroup = addPlayerToGroup;
 exports.addAdminToGroup = addAdminToGroup;
-exports.removePlayerFromGroup = removePlayerFromGroup;
+exports.removePlayer = removePlayer;
+exports.removeAdmin = removeAdmin;
