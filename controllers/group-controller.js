@@ -1,7 +1,3 @@
-const {validationResult} = require('express-validator');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-
 const User = require('../models/user');
 const Group = require('../models/group');
 const validateRequest = require('../helper/valid-checker');
@@ -40,11 +36,9 @@ const createGroup = async (req, res, next) => {
     }
 
     try {
-        console.log(createdGroup);
         await createdGroup.save();
         user.groups.push(createdGroup);
         await user.save();
-
     } catch (e) {
         return next(new HttpError("Creating group failed, please try again", 500));
     }
@@ -57,19 +51,45 @@ const addPlayerToGroup = async (req, res, next) => {
 
     const {newPlayers, group, user} = req.body;
 
-    // CHECK IF GROUP EXISTS
     let existingGroup;
     try {
         existingGroup = await Group.findById(group);
     } catch (e) {
         return next(new HttpError("Could not add new player(s), please try again", 401))
     }
+    if (!existingGroup) {
+        return next(new HttpError("The provided group could not be found", 404))
+    }
 
     // CHECK IF USER IS ADMIN ON GROUP
+    const admins = existingGroup['admins'];
+    if (!admins.includes(user)) {
+        return next(new HttpError("The provided user cannot update the provided group", 405))
+    }
+
+    // CHECK IF PROVIDED PLAYERS ARE IN GROUP
+    const existingPlayers = existingGroup['players'];
+    let playersToAdd = [];
+    newPlayers.forEach(player => {
+        if (!existingPlayers.includes(player)) {
+            playersToAdd.push(player);
+        }
+    });
 
     // ADD PLAYERS TO GROUP
+    try {
+        for (const newPlayer of playersToAdd) {
+            let player = await User.findById(newPlayer);
+            existingGroup.players.push(player);
+            await existingGroup.save();
+            player.groups.push(existingGroup);
+            await player.save();
+        }
+    } catch (e) {
+        return next(new HttpError("Adding players failed, please try again", 500));
+    }
 
-
+    res.status(201).json({message: "Success"});
 };
 
 
