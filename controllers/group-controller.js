@@ -91,7 +91,7 @@ const addPlayerToGroup = async (req, res, next) => {
         return next(new HttpError("Adding players failed, please try again", 500));
     }
 
-    res.status(201).json({message: "Successfully added a player"});
+    res.status(200).json({message: "Successfully added a player"});
 };
 
 const addAdminToGroup = async (req, res, next) => {
@@ -132,7 +132,7 @@ const addAdminToGroup = async (req, res, next) => {
         return next(new HttpError("Adding admins failed, please try again", 500));
     }
 
-    res.status(201).json({message: "Successfully added an admin"});
+    res.status(200).json({message: "Successfully added an admin"});
 };
 
 const removePlayer = async (req, res, next) => {
@@ -185,7 +185,7 @@ const removePlayer = async (req, res, next) => {
         return next(new HttpError("Removing player failed, please try again", 500));
     }
 
-    res.status(201).json({message: "Succesfully removed user"});
+    res.status(200).json({message: "Succesfully removed user"});
 };
 
 const removeAdmin = async (req, res, next) => {
@@ -221,7 +221,7 @@ const removeAdmin = async (req, res, next) => {
         return next(new HttpError("Cannot remove the provided admin, please try again.", 500));
     }
 
-    res.status(201).json({message: "Succesfully removed admin of group"});
+    res.status(200).json({message: "Succesfully removed admin of group"});
 
 };
 
@@ -265,7 +265,40 @@ const removeGroup = async (req, res, next) => {
         return next(new HttpError("Could not remove the group, please try again.", 500));
     }
 
-    res.status(201).json({message: "Succesfully deleted the group"});
+    res.status(200).json({message: "Succesfully deleted the group"});
+};
+
+const editGroup = async (req, res, next) => {
+    await validateRequest(req, next);
+
+    const {groupId, title, userId} = req.body;
+
+    let selectedGroup;
+    try {
+        selectedGroup = await Group.findById(groupId);
+    } catch (e) {
+        return next(new HttpError("Could not edit the group, please try again.", 500));
+    }
+
+    let selectedUser;
+    try {
+        selectedUser = await User.findById(userId);
+    } catch (e) {
+        return next(new HttpError("Could not edit the group, please try again.", 500));
+    }
+
+    if (!selectedGroup['admins'].includes(selectedUser.id)) {
+        return next(new HttpError("Not permitted to edit this group.", 403));
+    }
+
+    try {
+        selectedGroup.title = title;
+        selectedGroup.save();
+    } catch {
+        return next(new HttpError("Could not edit the group, please try again.", 500));
+    }
+
+    res.status(200).json({message: "Succesfully edited the group"});
 };
 
 exports.createGroup = createGroup;
@@ -274,3 +307,4 @@ exports.addAdminToGroup = addAdminToGroup;
 exports.removePlayer = removePlayer;
 exports.removeAdmin = removeAdmin;
 exports.removeGroup = removeGroup;
+exports.editGroup = editGroup;

@@ -16,4 +16,11 @@ router.post("/login", [
     check('password').isLength({min: 6})
 ], userController.login);
 
+router.patch("/edit", [
+    check('name').not().isEmpty(),
+    check('username').isLength({min: 5}),
+    check('password').isLength({min: 6}),
+    check('userId').not().isEmpty()
+], userController.editUser);
+
 module.exports = router;

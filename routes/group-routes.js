@@ -6,7 +6,7 @@ const groupController = require('../controllers/group-controller');
 const router = express.Router();
 
 router.post("/create", [
-    check('title').not().isEmpty(),
+    check('title').isLength({min: 5}),
     check('userId').not().isEmpty()
 ], groupController.createGroup);
 
@@ -38,5 +38,11 @@ router.delete('/remove', [
     check('groupId').not().isEmpty(),
     check('userId').not().isEmpty()
 ], groupController.removeGroup);
+
+router.patch('/edit', [
+    check('groupId').not().isEmpty(),
+    check('title').isLength({min: 5}),
+    check('userId').not().isEmpty()
+], groupController.editGroup);
 
 module.exports = router;

@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const User = require('../models/user');
+const validateRequest = require('../helper/valid-checker');
 const HttpError = require('../models/http-error');
 
 const login = async (req, res, next) => {
@@ -36,7 +37,7 @@ const login = async (req, res, next) => {
             {userId: existingUser.id, username: existingUser.username},
             process.env.JWT_KEY,
             {expiresIn: '7d'});
-    } catch (err) {
+    } catch (e) {
         return next(new HttpError("Logging in failed", 500));
     }
 
@@ -89,12 +90,44 @@ const signup = async (req, res, next) => {
             {userId: createdUser.id, username: createdUser.username},
             process.env.JWT_KEY,
             {expiresIn: '10s'});
-    } catch (err) {
+    } catch (e) {
+        gr
         return next(new HttpError("Signing up failed", 500));
     }
 
     res.status(201).json({userId: createdUser.id, username: createdUser.username, token: token});
 };
 
+const editUser = async (req, res, next) => {
+    await validateRequest(req, next);
+
+    const {name, username, password, userId} = req.body;
+
+    const token = jwt.decode((JSON.parse(req.headers.userdata))["Bearer Token"]);
+    if (token.userId !== userId) {
+        return next(new HttpError("You cannot update other users", 500));
+    }
+
+    let user;
+    try {
+        user = await User.findById(userId);
+    } catch (e) {
+        return next(new HttpError("Could not get user", 500));
+    }
+
+    try {
+        user.username = username;
+        user.password = password;
+        user.name = name;
+        await user.save();
+    } catch (e) {
+        return next(new HttpError("A user with this username already exists, please try again", 500));
+    }
+
+    res.status(200).json({message: "Succesfully updated user information"});
+
+};
+
 exports.signup = signup;
 exports.login = login;
+exports.editUser = editUser;
