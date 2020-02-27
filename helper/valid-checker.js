@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const HttpError = require('../models/http-error');
 
 const validateRequest = async (req, next) => {
+    console.log("validation");
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         return next(new HttpError("Invalid inputs", 422));

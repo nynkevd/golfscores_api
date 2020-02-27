@@ -7,36 +7,36 @@ const router = express.Router();
 
 router.post("/create", [
     check('title').not().isEmpty(),
-    check('creator').not().isEmpty()
+    check('userId').not().isEmpty()
 ], groupController.createGroup);
 
 router.post("/addplayer", [
     check('newPlayers').isArray({min: 1}),
-    check('group').not().isEmpty(),
-    check('user').not().isEmpty()
+    check('groupId').not().isEmpty(),
+    check('userId').not().isEmpty()
 ], groupController.addPlayerToGroup);
 
 router.post("/addadmin", [
-    check('newAdmins').isArray({min: 1}),
-    check('group').not().isEmpty(),
-    check('user').not().isEmpty()
+    check('newAdminId').not().isEmpty(),
+    check('groupId').not().isEmpty(),
+    check('userId').not().isEmpty()
 ], groupController.addAdminToGroup);
 
 router.delete('/removeplayer', [
-    check('player').not().isEmpty(),
-    check('group').not().isEmpty(),
-    check('user').not().isEmpty()
+    check('playerId').not().isEmpty(),
+    check('groupId').not().isEmpty(),
+    check('userId').not().isEmpty()
 ], groupController.removePlayer);
 
 router.delete('/removeadmin', [
-    check('admin').not().isEmpty(),
-    check('group').not().isEmpty(),
-    check('user').not().isEmpty()
+    check('adminId').not().isEmpty(),
+    check('groupId').not().isEmpty(),
+    check('userId').not().isEmpty()
 ], groupController.removeAdmin);
 
 router.delete('/remove', [
-    check('group').not().isEmpty(),
-    check('user').not().isEmpty()
+    check('groupId').not().isEmpty(),
+    check('userId').not().isEmpty()
 ], groupController.removeGroup);
 
 module.exports = router;

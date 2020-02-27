@@ -6,7 +6,7 @@ const HttpError = require('../models/http-error');
 const createGroup = async (req, res, next) => {
     await validateRequest(req, next);
 
-    const {title, creator} = req.body;
+    const {title, userId} = req.body;
 
     let existingGroup;
     try {
@@ -18,16 +18,9 @@ const createGroup = async (req, res, next) => {
         return next(new HttpError("A group with this title already exists, please try a different title", 422));
     }
 
-    const createdGroup = new Group({
-        title,
-        players: [creator],
-        admins: [creator],
-        matches: []
-    });
-
     let user;
     try {
-        user = await User.findById(creator);
+        user = await User.findById(userId);
     } catch (e) {
         return next(new HttpError("Could not create group, please try again", 500));
     }
@@ -36,6 +29,13 @@ const createGroup = async (req, res, next) => {
     }
 
     try {
+        const createdGroup = new Group({
+            title,
+            players: [user],
+            admins: [user],
+            matches: []
+        });
+
         await createdGroup.save();
         user.groups.push(createdGroup);
         await user.save();
@@ -49,11 +49,11 @@ const createGroup = async (req, res, next) => {
 const addPlayerToGroup = async (req, res, next) => {
     await validateRequest(req, next);
 
-    const {newPlayers, group, user} = req.body;
+    const {newPlayers, groupId, userId} = req.body;
 
     let existingGroup;
     try {
-        existingGroup = await Group.findById(group);
+        existingGroup = await Group.findById(groupId);
     } catch (e) {
         return next(new HttpError("Could not add new player(s), please try again", 401))
     }
@@ -62,7 +62,7 @@ const addPlayerToGroup = async (req, res, next) => {
     }
 
     const admins = existingGroup['admins'];
-    if (!admins.includes(user)) {
+    if (!admins.includes(userId)) {
         return next(new HttpError("The provided user cannot update the provided group", 405))
     }
 
@@ -73,6 +73,11 @@ const addPlayerToGroup = async (req, res, next) => {
             playersToAdd.push(player);
         }
     });
+
+    if (!playersToAdd.length > 0) {
+        res.status(201).json({message: "No new players were added, try adding other users"});
+        return next();
+    }
 
     try {
         for (const newPlayer of playersToAdd) {
@@ -92,38 +97,37 @@ const addPlayerToGroup = async (req, res, next) => {
 const addAdminToGroup = async (req, res, next) => {
     await validateRequest(req, next);
 
-    const {newAdmins, group, user} = req.body;
+    const {newAdminId, groupId, userId} = req.body;
 
     let existingGroup;
     try {
-        existingGroup = await Group.findById(group);
+        existingGroup = await Group.findById(groupId);
     } catch (e) {
-        return next(new HttpError("Could not add new player(s), please try again", 500))
+        return next(new HttpError("Could not add new admin, please try again", 500))
     }
     if (!existingGroup) {
         return next(new HttpError("The provided group could not be found", 404))
     }
 
     const admins = existingGroup['admins'];
-    if (!admins.includes(user)) {
+    if (!admins.includes(userId)) {
         return next(new HttpError("The provided user cannot update the provided group", 405))
     }
 
     const existingPlayers = existingGroup['players'];
     const existingAdmins = existingGroup['admins'];
-    let adminsToAdd = [];
-    newAdmins.forEach(admin => {
-        if (existingPlayers.includes(admin) && !existingAdmins.includes(admin)) {
-            adminsToAdd.push(admin);
-        }
-    });
+    if (!existingPlayers.includes(newAdminId)) {
+        return next(new HttpError("The provided new admin cannot be added to the group", 500))
+    }
+
+    if (!(existingPlayers.includes(newAdminId) && !existingAdmins.includes(newAdminId))) {
+        return next(new HttpError("The provided new admin cannot be added to the group", 500))
+    }
 
     try {
-        for (const newAdmin of adminsToAdd) {
-            let admin = await User.findById(newAdmin);
-            existingGroup.admins.push(admin);
-            await existingGroup.save();
-        }
+        let admin = await User.findById(newAdminId);
+        existingGroup.admins.push(admin);
+        await existingGroup.save();
     } catch (e) {
         return next(new HttpError("Adding admins failed, please try again", 500));
     }
@@ -134,36 +138,36 @@ const addAdminToGroup = async (req, res, next) => {
 const removePlayer = async (req, res, next) => {
     await validateRequest(req, next);
 
-    const {player, group, user} = req.body;
+    const {playerId, groupId, userId} = req.body;
 
-    if (player === user) {
+    if (playerId === userId) {
         return next(new HttpError("Cannot remove yourself", 500));
     }
 
     let selectedGroup;
     try {
-        selectedGroup = await Group.findById(group);
+        selectedGroup = await Group.findById(groupId);
     } catch (e) {
         return next(new HttpError("Removing player failed, please try again", 500));
     }
 
     let selectedPlayer;
     try {
-        selectedPlayer = await User.findById(player);
+        selectedPlayer = await User.findById(playerId);
     } catch (e) {
         return next(new HttpError("Removing player failed, please try again", 500));
     }
 
     const admins = selectedGroup['admins'];
     let isAdmin = false;
-    if (!admins.includes(user)) {
+    if (!admins.includes(userId)) {
         return next(new HttpError("No permission", 403));
     } else {
         isAdmin = true;
     }
 
     const players = selectedGroup['players'];
-    if (!players.includes(player)) {
+    if (!players.includes(playerId)) {
         return next(new HttpError("The provided player does not exist in this group", 500));
     }
 
@@ -187,21 +191,21 @@ const removePlayer = async (req, res, next) => {
 const removeAdmin = async (req, res, next) => {
     await validateRequest(req, next);
 
-    const {admin, group, user} = req.body;
+    const {adminId, groupId, userId} = req.body;
 
-    if (admin === user) {
+    if (adminId === userId) {
         return next(new HttpError("Cannot remove yourself", 500));
     }
 
     let selectedGroup;
     try {
-        selectedGroup = await Group.findById(group);
+        selectedGroup = await Group.findById(groupId);
     } catch (e) {
         return next(new HttpError("Removing admin permissions failed, please try again.", 500));
     }
 
     const admins = selectedGroup['admins'];
-    if (!admins.includes(admin)) {
+    if (!admins.includes(adminId)) {
         return next(new HttpError("The provided user is not an admin.", 500));
     }
 
@@ -210,7 +214,7 @@ const removeAdmin = async (req, res, next) => {
     }
 
     try {
-        const selectedAdmin = await User.findById(admin);
+        const selectedAdmin = await User.findById(adminId);
         selectedGroup.admins.pull(selectedAdmin);
         selectedGroup.save();
     } catch (e) {
@@ -224,18 +228,18 @@ const removeAdmin = async (req, res, next) => {
 const removeGroup = async (req, res, next) => {
     await validateRequest(req, next);
 
-    const {group, user} = req.body;
+    const {groupId, userId} = req.body;
 
     let selectedGroup;
     try {
-        selectedGroup = await Group.findById(group);
+        selectedGroup = await Group.findById(groupId);
     } catch (e) {
         return next(new HttpError("Could not remove the group, please try again.", 500));
     }
 
     let selectedUser;
     try {
-        selectedUser = await User.findById(user);
+        selectedUser = await User.findById(userId);
     } catch (e) {
         return next(new HttpError("Could not remove the group, please try again.", 500));
     }
@@ -256,7 +260,7 @@ const removeGroup = async (req, res, next) => {
     }
 
     try {
-        await Group.findByIdAndDelete(group);
+        await Group.findByIdAndDelete(groupId);
     } catch (err) {
         return next(new HttpError("Could not remove the group, please try again.", 500));
     }
