@@ -11,4 +11,10 @@ router.post("/add", [
     check('userId').not().isEmpty()
 ], matchController.addMatches);
 
+router.delete("/remove", [
+    check('matchId').not().isEmpty(),
+    check('groupId').not().isEmpty(),
+    check('userId').not().isEmpty(),
+], matchController.deleteMatch);
+
 module.exports = router;
