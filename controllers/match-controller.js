@@ -6,6 +6,39 @@ const Match = require('../models/match');
 const validateRequest = require('../helper/valid-checker');
 const HttpError = require('../models/http-error');
 
+const getMatches = async (req, res, next) => {
+    await validateRequest(req, next);
+
+    const {groupId, userId} = req.body;
+
+    let group;
+    try {
+        group = await Group.findById(groupId);
+    } catch (e) {
+        return next(new HttpError("Could not get the selected group.", 500));
+    }
+
+    let user;
+    try {
+        user = User.findById(userId);
+    } catch (e) {
+        return next(new HttpError("Could not find the selected user", 500));
+    }
+
+    if (!group.players.includes(userId)) {
+        return next(new HttpError("User is not a player of this group", 500));
+    }
+
+    let matches;
+    try {
+        matches = await Match.find({group: group}).sort({date: 'asc'});
+    } catch {
+        return next(new HttpError("User is not a player of this group", 500));
+    }
+
+    res.send(matches);
+};
+
 const addMatches = async (req, res, next) => {
     await validateRequest(req, next);
 
@@ -99,8 +132,6 @@ const deleteMatch = async (req, res, next) => {
         return next(new HttpError("No user was found.", 404));
     }
 
-    console.log(group);
-
     if (!group.matches.includes(match.id)) {
         return next(new HttpError("The provided match does not belong to the provided group", 404));
     }
@@ -109,9 +140,8 @@ const deleteMatch = async (req, res, next) => {
         return next(new HttpError("The provided user is not permitted to update this group", 403));
     }
 
-    // REMOVE ALL RESULTS WITH MATCHID
+    //TODO: REMOVE ALL RESULTS WITH MATCHID
 
-    // REMOVE MATCH
     try {
         await group.matches.pull(match);
         await Match.findByIdAndDelete(match.id);
@@ -122,5 +152,6 @@ const deleteMatch = async (req, res, next) => {
     res.status(200).json({message: "Succesfully removed the match"});
 };
 
+exports.getMatches = getMatches;
 exports.addMatches = addMatches;
 exports.deleteMatch = deleteMatch;

@@ -5,6 +5,10 @@ const matchController = require('../controllers/match-controller');
 
 const router = express.Router();
 
+router.get("/getmatches", [
+    check('groupId').not().isEmpty()
+], matchController.getMatches);
+
 router.post("/add", [
     check('dates').isArray({min: 1}),
     check('groupId').not().isEmpty(),
