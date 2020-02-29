@@ -5,7 +5,6 @@ const HttpError = require('../models/http-error');
 
 const validateRequest = async (req, next) => {
     const errors = validationResult(req);
-    console.log(errors);
     if (!errors.isEmpty()) {
         return next(new HttpError("Invalid inputs", 422));
     }
