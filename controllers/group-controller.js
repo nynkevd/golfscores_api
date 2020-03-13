@@ -6,7 +6,8 @@ const HttpError = require('../models/http-error');
 const createGroup = async (req, res, next) => {
     await validateRequest(req, next);
 
-    const {title, userId} = req.body;
+    const userId = req.userData.userId;
+    const {title} = req.body;
 
     let existingGroup;
     try {
@@ -49,7 +50,8 @@ const createGroup = async (req, res, next) => {
 const addPlayerToGroup = async (req, res, next) => {
     await validateRequest(req, next);
 
-    const {newPlayers, groupId, userId} = req.body;
+    const userId = req.userData.userId;
+    const {newPlayers, groupId} = req.body;
 
     let existingGroup;
     try {
@@ -91,13 +93,16 @@ const addPlayerToGroup = async (req, res, next) => {
         return next(new HttpError("Adding players failed, please try again", 500));
     }
 
+    //TODO create results for the group matches for the player
+
     res.status(200).json({message: "Successfully added a player"});
 };
 
 const addAdminToGroup = async (req, res, next) => {
     await validateRequest(req, next);
 
-    const {newAdminId, groupId, userId} = req.body;
+    const userId = req.userData.userId;
+    const {newAdminId, groupId} = req.body;
 
     let existingGroup;
     try {
@@ -138,7 +143,8 @@ const addAdminToGroup = async (req, res, next) => {
 const removePlayer = async (req, res, next) => {
     await validateRequest(req, next);
 
-    const {playerId, groupId, userId} = req.body;
+    const userId = req.userData.userId;
+    const {playerId, groupId} = req.body;
 
     if (playerId === userId) {
         return next(new HttpError("Cannot remove yourself", 500));
@@ -191,7 +197,8 @@ const removePlayer = async (req, res, next) => {
 const removeAdmin = async (req, res, next) => {
     await validateRequest(req, next);
 
-    const {adminId, groupId, userId} = req.body;
+    const userId = req.userData.userId;
+    const {adminId, groupId} = req.body;
 
     if (adminId === userId) {
         return next(new HttpError("Cannot remove yourself", 500));
@@ -228,7 +235,8 @@ const removeAdmin = async (req, res, next) => {
 const removeGroup = async (req, res, next) => {
     await validateRequest(req, next);
 
-    const {groupId, userId} = req.body;
+    const userId = req.userData.userId;
+    const {groupId} = req.body;
 
     let selectedGroup;
     try {
@@ -259,6 +267,9 @@ const removeGroup = async (req, res, next) => {
         }
     }
 
+    //TODO Remove Matches and result from matches when removing group
+
+
     try {
         await Group.findByIdAndDelete(groupId);
     } catch (err) {
@@ -271,7 +282,8 @@ const removeGroup = async (req, res, next) => {
 const editGroup = async (req, res, next) => {
     await validateRequest(req, next);
 
-    const {groupId, title, userId} = req.body;
+    const userId = req.userData.userId;
+    const {groupId, title} = req.body;
 
     let selectedGroup;
     try {

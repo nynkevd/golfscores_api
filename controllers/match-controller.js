@@ -3,13 +3,15 @@ const moment = require('moment');
 const User = require('../models/user');
 const Group = require('../models/group');
 const Match = require('../models/match');
+const Result = require('../models/result');
 const validateRequest = require('../helper/valid-checker');
 const HttpError = require('../models/http-error');
 
 const getMatches = async (req, res, next) => {
     await validateRequest(req, next);
 
-    const {groupId, userId} = req.body;
+    const userId = req.userData.userId;
+    const {groupId} = req.body;
 
     let group;
     try {
@@ -42,7 +44,8 @@ const getMatches = async (req, res, next) => {
 const addMatches = async (req, res, next) => {
     await validateRequest(req, next);
 
-    const {dates, groupId, userId} = req.body;
+    const userId = req.userData.userId;
+    const {dates, groupId} = req.body;
 
     let group;
     try {
@@ -62,8 +65,10 @@ const addMatches = async (req, res, next) => {
         return next(new HttpError("User not permitted to edit this group", 500));
     }
 
+
     let successful = 0;
     let existing = "";
+    let existingMatch = true;
     let newMatch;
     for (const date of dates) {
         let momentDate = moment(date, "DD-MM-YYYY");
@@ -74,8 +79,9 @@ const addMatches = async (req, res, next) => {
             results: []
         });
 
+
         try {
-            let existingMatch = !!await Match.findOne({date: momentDate, group: groupId});
+            existingMatch = !!await Match.findOne({date: momentDate, group: groupId});
             if (existingMatch) {
                 existing += " A match on " + date + " already exists, please try a different day.";
             } else {
@@ -90,6 +96,27 @@ const addMatches = async (req, res, next) => {
         }
     }
 
+    if (!existingMatch) {
+        let newMatches = await Match.find({group: groupId});
+        for (const thisMatch of newMatches) {
+            for (const player of group.players) {
+                let newResult = new Result({
+                    match: thisMatch._id,
+                    user: player,
+                    score: 0
+                });
+                try {
+                    await newResult.save();
+                    await thisMatch.results.push(newResult);
+                    await thisMatch.save();
+                } catch (e) {
+                    console.log("Could not save this result");
+                }
+            }
+        }
+    }
+
+
     res.status(201).json({message: `Succesfully created ${successful} new match(es).${existing ? existing : ""}`})
 
 };
@@ -97,7 +124,8 @@ const addMatches = async (req, res, next) => {
 const deleteMatch = async (req, res, next) => {
     await validateRequest(req, next);
 
-    const {matchId, groupId, userId} = req.body;
+    const userId = req.userData.userId;
+    const {matchId, groupId} = req.body;
 
     let match;
     try {

@@ -11,14 +11,12 @@ router.get("/getmatches", [
 
 router.post("/add", [
     check('dates').isArray({min: 1}),
-    check('groupId').not().isEmpty(),
-    check('userId').not().isEmpty()
+    check('groupId').not().isEmpty()
 ], matchController.addMatches);
 
 router.delete("/remove", [
     check('matchId').not().isEmpty(),
-    check('groupId').not().isEmpty(),
-    check('userId').not().isEmpty(),
+    check('groupId').not().isEmpty()
 ], matchController.deleteMatch);
 
 module.exports = router;

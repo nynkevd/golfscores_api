@@ -9,14 +9,15 @@ const validateRequest = async (req, next) => {
         return next(new HttpError("Invalid inputs", 422));
     }
 
-    if (!req.headers.userdata) {
-        return next(new HttpError("There is no token provided", 401))
-    }
-    const token = (JSON.parse(req.headers.userdata))["Bearer Token"];
     try {
-        jwt.verify(token, process.env.JWT_KEY);
-    } catch (err) {
-        return next(new HttpError("The provided token is not valid", 401))
+        const token = req.headers.authorization.split(' ')[1];
+        if (!token) {
+            return next(new HttpError("There is no token provided", 401))
+        }
+        const decodedToken = jwt.verify(token, process.env.JWT_KEY);
+        req.userData = {userId: decodedToken.userId};
+    } catch (e) {
+        return next(new HttpError("Authentication failed", 401));
     }
 
 };
