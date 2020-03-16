@@ -15,11 +15,11 @@ const getUserInfo = async (req, res, next) => {
     try {
         existingUser = await User.findById(userId);
     } catch (e) {
-        return next(new HttpError("Informatie kan niet worden opgehaald, probeer nog een keer", 500));
+        res.status(500).send({message: 'De informatie kan niet opgehaald worden.'})
     }
 
     if (!existingUser) {
-        return next(new HttpError("Kan de gegeven gebruiker niet vinden", 404));
+        res.status(404).send({message: 'Kan de gebruiker niet vinden.'})
     }
 
     res.status(200).json({name: existingUser.name, username: existingUser.username});
@@ -27,27 +27,26 @@ const getUserInfo = async (req, res, next) => {
 
 const login = async (req, res, next) => {
     const {username, password} = req.body;
-
     let existingUser;
     try {
         existingUser = await User.findOne({username: username});
     } catch (e) {
-        return next(new HttpError("Kan niet inloggen, probeer het opnieuw", 500));
+        res.status(500).send({message: 'Kan niet inloggen, probeer het opnieuw.'})
     }
 
     if (!existingUser) {
-        return next(new HttpError("Deze gebruiker bestaat niet", 403));
+        res.status(500).send({message: 'Kan niet inloggen, probeer het opnieuw.'})
     }
 
     let isValidPassword = false;
     try {
         isValidPassword = await bcrypt.compare(password, existingUser.password);
     } catch (e) {
-        return next(new HttpError("Kan niet inloggen, probeer het opnieuw", 500));
+        res.status(500).send({message: 'Kan niet inloggen, probeer het opnieuw.'})
     }
 
     if (!isValidPassword) {
-        return next(new HttpError("Deze gebruiker bestaat niet", 403));
+        res.status(403).send({message: 'Wachtwoord klopt niet.'})
     }
 
     let token;
@@ -57,7 +56,8 @@ const login = async (req, res, next) => {
             process.env.JWT_KEY,
             {expiresIn: '7d'});
     } catch (e) {
-        return next(new HttpError("Kan niet inloggen, probeer het opnieuw", 500));
+        res.status(500).json({message: "Kan niet inloggen, probeer het opnieuw."}).send();
+        next();
     }
 
     res.json({userId: existingUser.id, username: existingUser.username, token: token});
@@ -67,7 +67,7 @@ const login = async (req, res, next) => {
 const signup = async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return next(new HttpError("Kan niet aanmelden, probeer het opnieuw", 422));
+        res.status(422).send({message: 'Kan niet aanmelden, controleer de velden.'});
     }
 
     const {name, username, password} = req.body;
@@ -76,7 +76,7 @@ const signup = async (req, res, next) => {
     try {
         existingUser = await User.findOne({username: username});
     } catch (e) {
-        return next(new HttpError("Kan niet aanmelden, probeer het opnieuw", 500));
+        res.status(500).send({message: 'Kan niet aanmelden, probeer het opnieuw.'});
     }
 
     if (existingUser) {
