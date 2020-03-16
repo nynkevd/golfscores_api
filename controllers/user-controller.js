@@ -22,7 +22,11 @@ const getUserInfo = async (req, res, next) => {
         res.status(404).send({message: 'Kan de gebruiker niet vinden.'})
     }
 
-    res.status(200).json({name: existingUser.name, username: existingUser.username});
+    res.status(200).json({
+        name: existingUser.name,
+        username: existingUser.username,
+        description: existingUser.description
+    });
 };
 
 const login = async (req, res, next) => {
@@ -70,7 +74,8 @@ const signup = async (req, res, next) => {
         res.status(422).send({message: 'Kan niet aanmelden, controleer de velden.'});
     }
 
-    const {name, username, password} = req.body;
+    const {name, username, description, password} = req.body;
+    console.log(description);
 
     let existingUser;
     try {
@@ -80,19 +85,20 @@ const signup = async (req, res, next) => {
     }
 
     if (existingUser) {
-        return next(new HttpError("Er bestaat al een gebruiker met deze gebruikersnaam", 422));
+        res.status(422).send({message: 'Er bestaat al een gebruiker met deze gebruikersnaam'})
     }
 
     let hashedPassword;
     try {
         hashedPassword = await bcrypt.hash(password, 12);
     } catch (e) {
-        return next(new HttpError("Kan niet aanmelden, probeer het opnieuw", 500));
+        res.status(500).send({message: 'Kan niet aanmelden, probeer het opnieuw.'});
     }
 
     const createdUser = new User({
         name,
         username,
+        description,
         password: hashedPassword,
         groups: []
     });
@@ -100,7 +106,7 @@ const signup = async (req, res, next) => {
     try {
         await createdUser.save();
     } catch (e) {
-        return next(new HttpError("Kan niet aanmelden, probeer het opnieuw", 500));
+        res.status(500).send({message: 'Kan niet aanmelden, probeer het opnieuw.'});
     }
 
     let token;
@@ -110,7 +116,7 @@ const signup = async (req, res, next) => {
             process.env.JWT_KEY,
             {expiresIn: '7d'});
     } catch (e) {
-        return next(new HttpError("Kan niet aanmelden, probeer het opnieuw", 500));
+        res.status(500).send({message: 'Kan niet aanmelden, probeer het opnieuw.'});
     }
 
     res.status(201).json({userId: createdUser.id, username: createdUser.username, token: token});
@@ -120,7 +126,9 @@ const editUser = async (req, res, next) => {
     await validateRequest(req, next);
 
     const userId = req.userData.userId;
-    const {name, username, currentPassword, newPassword} = req.body;
+    const {name, username, description, currentPassword, newPassword} = req.body;
+
+    console.log("description  " + description);
 
     let user;
     try {
@@ -149,6 +157,7 @@ const editUser = async (req, res, next) => {
 
     try {
         user.password = await bcrypt.hash(newPassword, 12);
+        user.description = description;
         user.name = name;
         await user.save();
     } catch (e) {
