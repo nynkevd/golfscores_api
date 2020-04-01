@@ -2,10 +2,9 @@ const User = require('../models/user');
 const Group = require('../models/group');
 const Invite = require('../models/invite');
 const validateRequest = require('../helper/valid-checker');
-const HttpError = require('../models/http-error');
 
 const getGroupInfo = async (req, res, next) => {
-    await validateRequest(req, next);
+    await validateRequest(req, res, next);
 
     const groupName = req.params.groupName;
     const userId = req.userData.userId;
@@ -35,11 +34,11 @@ const getGroupInfo = async (req, res, next) => {
 };
 
 const getGroups = async (req, res, next) => {
-    await validateRequest(req, next);
+    await validateRequest(req, res, next);
 };
 
 const createGroup = async (req, res, next) => {
-    await validateRequest(req, next);
+    await validateRequest(req, res, next);
 
     const {title, invites} = req.body;
     const userId = req.userData.userId;
@@ -100,14 +99,14 @@ const createGroup = async (req, res, next) => {
         await createdGroup.save();
     } catch (e) {
         console.log(e);
-        res.status(500).send({message: 'Het is hier niet gelukt, probeer opnieuw.'})
+        res.status(500).send({message: 'Het is niet gelukt, probeer opnieuw.'});
     }
 
     res.status(201).json({message: "Succesvol een groep aangemaakt"});
 };
 
 const addPlayerToGroup = async (req, res, next) => {
-    await validateRequest(req, next);
+    await validateRequest(req, res, next);
 
     const userId = req.userData.userId;
     const {newPlayers, groupId} = req.body;
@@ -116,15 +115,15 @@ const addPlayerToGroup = async (req, res, next) => {
     try {
         existingGroup = await Group.findById(groupId);
     } catch (e) {
-        return next(new HttpError("Could not add new player(s), please try again", 401))
+        res.status(401).send({message: 'Nieuwe spelers kunnen niet worden toegevoegd.'});
     }
     if (!existingGroup) {
-        return next(new HttpError("The provided group could not be found", 404))
+        res.status(404).send({message: 'De groep kan niet worden gevonden.'});
     }
 
     const admins = existingGroup['admins'];
     if (!admins.includes(userId)) {
-        return next(new HttpError("The provided user cannot update the provided group", 405))
+        res.status(405).send({message: 'Geen rechten om deze groep aan te passen.'});
     }
 
     const existingPlayers = existingGroup['players'];
@@ -136,8 +135,7 @@ const addPlayerToGroup = async (req, res, next) => {
     });
 
     if (!playersToAdd.length > 0) {
-        res.status(201).json({message: "No new players were added, try adding other users"});
-        return next();
+        res.status(401).send({message: 'Geen nieuwe gebruikers toegevoegd.'});
     }
 
     try {
@@ -149,16 +147,16 @@ const addPlayerToGroup = async (req, res, next) => {
             await player.save();
         }
     } catch (e) {
-        return next(new HttpError("Adding players failed, please try again", 500));
+        res.status(500).send({message: 'Gebruikers kunnen niet worden toegevoegd, probeer het opnieuw.'});
     }
 
     //TODO create results for the group matches for the player
 
-    res.status(200).json({message: "Successfully added a player"});
+    res.status(200).json({message: "Succesvol een speler toegevoegd."});
 };
 
 const addAdminToGroup = async (req, res, next) => {
-    await validateRequest(req, next);
+    await validateRequest(req, res, next);
 
     const userId = req.userData.userId;
     const {newAdminId, groupId} = req.body;
@@ -167,25 +165,25 @@ const addAdminToGroup = async (req, res, next) => {
     try {
         existingGroup = await Group.findById(groupId);
     } catch (e) {
-        return next(new HttpError("Could not add new admin, please try again", 500))
+        res.status(500).json({message: "Kon geen nieuwe admin toevoegen, probeer het opnieuw."});
     }
     if (!existingGroup) {
-        return next(new HttpError("The provided group could not be found", 404))
+        res.status(404).json({message: "De groep kon niet gevonden worden, probeer het opnieuw."});
     }
 
     const admins = existingGroup['admins'];
     if (!admins.includes(userId)) {
-        return next(new HttpError("The provided user cannot update the provided group", 405))
+        res.status(405).json({message: "Geen rechten om deze groep aan te passen."});
     }
 
     const existingPlayers = existingGroup['players'];
     const existingAdmins = existingGroup['admins'];
     if (!existingPlayers.includes(newAdminId)) {
-        return next(new HttpError("The provided new admin cannot be added to the group", 500))
+        res.status(500).json({message: "Kon geen nieuwe admin toevoegen, probeer het opnieuw."});
     }
 
     if (!(existingPlayers.includes(newAdminId) && !existingAdmins.includes(newAdminId))) {
-        return next(new HttpError("The provided new admin cannot be added to the group", 500))
+        res.status(500).json({message: "De speler kan niet worden toegevoegd."});
     }
 
     try {
@@ -193,47 +191,47 @@ const addAdminToGroup = async (req, res, next) => {
         existingGroup.admins.push(admin);
         await existingGroup.save();
     } catch (e) {
-        return next(new HttpError("Adding admins failed, please try again", 500));
+        res.status(500).json({message: "Kon geen nieuwe admin toevoegen, probeer het opnieuw"});
     }
 
-    res.status(200).json({message: "Successfully added an admin"});
+    res.status(200).json({message: "Succesvol een admin toegevoegd."});
 };
 
 const removePlayer = async (req, res, next) => {
-    await validateRequest(req, next);
+    await validateRequest(req, res, next);
 
     const userId = req.userData.userId;
     const {playerId, groupId} = req.body;
 
     if (playerId === userId) {
-        return next(new HttpError("Cannot remove yourself", 500));
+        res.status(500).json({message: "Kan niet jezelf verwijderen."});
     }
 
     let selectedGroup;
     try {
         selectedGroup = await Group.findById(groupId);
     } catch (e) {
-        return next(new HttpError("Removing player failed, please try again", 500));
+        res.status(500).json({message: "Kon de speler niet verwijderen, probeer het opnieuw."});
     }
 
     let selectedPlayer;
     try {
         selectedPlayer = await User.findById(playerId);
     } catch (e) {
-        return next(new HttpError("Removing player failed, please try again", 500));
+        res.status(500).json({message: "Kon de speler niet verwijderen, probeer het opnieuw."});
     }
 
     const admins = selectedGroup['admins'];
     let isAdmin = false;
     if (!admins.includes(userId)) {
-        return next(new HttpError("No permission", 403));
+        res.status(403).json({message: "Geen rechten om deze speler te verwijderen."});
     } else {
         isAdmin = true;
     }
 
     const players = selectedGroup['players'];
     if (!players.includes(playerId)) {
-        return next(new HttpError("The provided player does not exist in this group", 500));
+        res.status(404).json({message: "De speler is niet in deze groep gevonden."});
     }
 
     try {
@@ -247,36 +245,36 @@ const removePlayer = async (req, res, next) => {
         selectedPlayer.save();
 
     } catch (e) {
-        return next(new HttpError("Removing player failed, please try again", 500));
+        res.status(500).json({message: "Kon de speler niet verwijderen, probeer het opnieuw."});
     }
 
-    res.status(200).json({message: "Succesfully removed user"});
+    res.status(200).json({message: "Succesvol de speler verwijderd."});
 };
 
 const removeAdmin = async (req, res, next) => {
-    await validateRequest(req, next);
+    await validateRequest(req, res, next);
 
     const userId = req.userData.userId;
     const {adminId, groupId} = req.body;
 
     if (adminId === userId) {
-        return next(new HttpError("Cannot remove yourself", 500));
+        res.status(500).json({message: "Kan niet jezelf verwijderen."});
     }
 
     let selectedGroup;
     try {
         selectedGroup = await Group.findById(groupId);
     } catch (e) {
-        return next(new HttpError("Removing admin permissions failed, please try again.", 500));
+        res.status(500).json({message: "Kon admin rechten niet intrekken."});
     }
 
     const admins = selectedGroup['admins'];
     if (!admins.includes(adminId)) {
-        return next(new HttpError("The provided user is not an admin.", 500));
+        res.status(500).json({message: "Kon admin rechten niet intrekken."});
     }
 
     if (admins.length === 1) {
-        return next(new HttpError("Cannot remove this admin, a group needs at least 1 admin.", 500));
+        res.status(500).json({message: "Kon admin rechten niet intrekken, minimaal 1 admin vereist."});
     }
 
     try {
@@ -284,15 +282,15 @@ const removeAdmin = async (req, res, next) => {
         selectedGroup.admins.pull(selectedAdmin);
         selectedGroup.save();
     } catch (e) {
-        return next(new HttpError("Cannot remove the provided admin, please try again.", 500));
+        res.status(500).json({message: "Kon admin rechten niet intrekken."});
     }
 
-    res.status(200).json({message: "Succesfully removed admin of group"});
+    res.status(200).json({message: "Succesvol admin rechten verwijderd."});
 
 };
 
 const removeGroup = async (req, res, next) => {
-    await validateRequest(req, next);
+    await validateRequest(req, res, next);
 
     const userId = req.userData.userId;
     const {groupId} = req.body;
@@ -301,18 +299,18 @@ const removeGroup = async (req, res, next) => {
     try {
         selectedGroup = await Group.findById(groupId);
     } catch (e) {
-        return next(new HttpError("Could not remove the group, please try again.", 500));
+        res.status(500).json({message: "Kon groep niet verwijderen, probeer het opnieuw."});
     }
 
     let selectedUser;
     try {
         selectedUser = await User.findById(userId);
     } catch (e) {
-        return next(new HttpError("Could not remove the group, please try again.", 500));
+        res.status(500).json({message: "Kon groep niet verwijderen, probeer het opnieuw."});
     }
 
     if (!selectedGroup['admins'].includes(selectedUser.id)) {
-        return next(new HttpError("Not permitted to remove this group.", 403));
+        res.status(403).json({message: "Geen rechten om de groep te verwijderen."});
     }
 
     let players = selectedGroup['players'];
@@ -322,7 +320,7 @@ const removeGroup = async (req, res, next) => {
             thisPlayer.groups.pull(selectedGroup);
             await thisPlayer.save();
         } catch (e) {
-            return next(new HttpError("Could not remove the group, please try again.", 500));
+            res.status(500).json({message: "Kon groep niet verwijderen, probeer het opnieuw."});
         }
     }
 
@@ -332,14 +330,14 @@ const removeGroup = async (req, res, next) => {
     try {
         await Group.findByIdAndDelete(groupId);
     } catch (err) {
-        return next(new HttpError("Could not remove the group, please try again.", 500));
+        res.status(500).json({message: "Kon groep niet verwijderen, probeer het opnieuw."});
     }
 
-    res.status(200).json({message: "Succesfully deleted the group"});
+    res.status(200).json({message: "Succesvol de groep verwijderd."});
 };
 
 const editGroup = async (req, res, next) => {
-    await validateRequest(req, next);
+    await validateRequest(req, res, next);
 
     const userId = req.userData.userId;
     const {groupId, title} = req.body;
@@ -348,28 +346,28 @@ const editGroup = async (req, res, next) => {
     try {
         selectedGroup = await Group.findById(groupId);
     } catch (e) {
-        return next(new HttpError("Could not edit the group, please try again.", 500));
+        res.status(500).json({message: "Kon groep niet aanpassen, probeer het opnieuw."});
     }
 
     let selectedUser;
     try {
         selectedUser = await User.findById(userId);
     } catch (e) {
-        return next(new HttpError("Could not edit the group, please try again.", 500));
+        res.status(500).json({message: "Kon groep niet aanpassen, probeer het opnieuw."});
     }
 
     if (!selectedGroup['admins'].includes(selectedUser.id)) {
-        return next(new HttpError("Not permitted to edit this group.", 403));
+        res.status(403).json({message: "Geen rechten om de groep aan te passen."});
     }
 
     try {
         selectedGroup.title = title;
         selectedGroup.save();
     } catch {
-        return next(new HttpError("Could not edit the group, please try again.", 500));
+        res.status(500).json({message: "Kon groep niet aanpassen, probeer het opnieuw."});
     }
 
-    res.status(200).json({message: "Succesfully edited the group"});
+    res.status(200).json({message: "Succesvol de groep aangepast."});
 };
 
 exports.getGroupInfo = getGroupInfo;

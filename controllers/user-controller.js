@@ -4,10 +4,9 @@ const jwt = require('jsonwebtoken');
 
 const User = require('../models/user');
 const validateRequest = require('../helper/valid-checker');
-const HttpError = require('../models/http-error');
 
 const getDashboardInfo = async (req, res, next) => {
-    await validateRequest(req, next);
+    await validateRequest(req, res, next);
     const userId = req.userData.userId;
 
     //get invites
@@ -22,7 +21,7 @@ const getDashboardInfo = async (req, res, next) => {
 };
 
 const getUserInfo = async (req, res, next) => {
-    await validateRequest(req, next);
+    await validateRequest(req, res, next);
 
     const userId = req.userData.userId;
 
@@ -45,7 +44,7 @@ const getUserInfo = async (req, res, next) => {
 };
 
 const getUsersBySearch = async (req, res, next) => {
-    await validateRequest(req, next);
+    await validateRequest(req, res, next);
     const userId = req.userData.userId;
 
     const searchQuery = req.params.searchQuery;
@@ -167,7 +166,7 @@ const signup = async (req, res, next) => {
 };
 
 const editUser = async (req, res, next) => {
-    await validateRequest(req, next);
+    await validateRequest(req, res, next);
 
     const userId = req.userData.userId;
     const {name, username, description, currentPassword, newPassword} = req.body;
@@ -178,25 +177,25 @@ const editUser = async (req, res, next) => {
     try {
         user = await User.findById(userId);
     } catch (e) {
-        return next(new HttpError("Kan gebruiker niet vinden", 500));
+        res.status(500).json({message: "Kon gebruiker niet ophalen, probeer het opnieuw."});
     }
 
     if (!await bcrypt.compare(currentPassword, user.password)) {
-        return next(new HttpError("Wachtwoord onjuist", 403));
+        res.status(403).json({message: "Wachtwoord onjuist."});
     }
 
     try {
         console.log("checking username");
         let existingUser = !!await User.findOne({username: username});
         if (existingUser && user.username !== username) {
-            return next(new HttpError("Er bestaat al een gebruiker met deze gebruikersnaam", 500));
+            res.status(500).json({message: "Er bestaat al een gebruiker met deze gebruikersnaam."});
         } else if (user.username !== username) {
             console.log("Changing username");
             user.username = username;
             await user.save();
         }
     } catch (e) {
-        return next(new HttpError("Lukte niet om te updaten", 500));
+        res.status(500).json({message: "Lukte niet om te updaten."});
     }
 
     try {
@@ -205,7 +204,7 @@ const editUser = async (req, res, next) => {
         user.name = name;
         await user.save();
     } catch (e) {
-        return next(new HttpError("Lukte niet om te updaten", 500));
+        res.status(500).json({message: "Lukte niet om te updaten."});
     }
 
     res.status(200).json({message: "Succesvol de gebruiker geüpdate"});

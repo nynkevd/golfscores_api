@@ -1,23 +1,22 @@
 const {validationResult} = require('express-validator');
 
 const jwt = require('jsonwebtoken');
-const HttpError = require('../models/http-error');
 
-const validateRequest = async (req, next) => {
+const validateRequest = async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return next(new HttpError("Invalid inputs", 422));
+        res.status(422).json({message: "Ongeldige Body."});
     }
 
     try {
         const token = await req.headers['x-auth-token'];
         if (!token) {
-            return next(new HttpError("There is no token provided", 401))
+            res.status(401).json({message: "Geen token meegegeven."});
         }
         const decodedToken = jwt.verify(token, process.env.JWT_KEY);
         req.userData = {userId: decodedToken.userId};
     } catch (e) {
-        return next(new HttpError("Authentication failed", 401));
+        res.status(401).json({message: "Geen geldig account."});
     }
 
 };

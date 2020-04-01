@@ -5,10 +5,9 @@ const Group = require('../models/group');
 const Match = require('../models/match');
 const Result = require('../models/result');
 const validateRequest = require('../helper/valid-checker');
-const HttpError = require('../models/http-error');
 
 const getMatches = async (req, res, next) => {
-    await validateRequest(req, next);
+    await validateRequest(req, res, next);
 
     const userId = req.userData.userId;
     const {groupId} = req.body;
@@ -17,32 +16,25 @@ const getMatches = async (req, res, next) => {
     try {
         group = await Group.findById(groupId);
     } catch (e) {
-        return next(new HttpError("Could not get the selected group.", 500));
-    }
-
-    let user;
-    try {
-        user = User.findById(userId);
-    } catch (e) {
-        return next(new HttpError("Could not find the selected user", 500));
+        res.status(500).json({message: "Kon wedstrijden niet ophalen, probeer het opnieuw."});
     }
 
     if (!group.players.includes(userId)) {
-        return next(new HttpError("User is not a player of this group", 500));
+        res.status(500).json({message: "Kan de wedstrijden voor deze gebruiker niet ophalen."});
     }
 
     let matches;
     try {
         matches = await Match.find({group: group}).sort({date: 'asc'});
     } catch {
-        return next(new HttpError("User is not a player of this group", 500));
+        res.status(500).json({message: "Kon wedstrijden niet ophalen, probeer het opnieuw."});
     }
 
     res.send(matches);
 };
 
 const addMatches = async (req, res, next) => {
-    await validateRequest(req, next);
+    await validateRequest(req, res, next);
 
     const userId = req.userData.userId;
     const {dates, groupId} = req.body;
@@ -51,20 +43,12 @@ const addMatches = async (req, res, next) => {
     try {
         group = await Group.findById(groupId);
     } catch (e) {
-        return next(new HttpError("Could not get the selected group.", 500));
-    }
-
-    let user;
-    try {
-        user = User.findById(userId);
-    } catch (e) {
-        return next(new HttpError("Could not find the selected user", 500));
+        res.status(500).json({message: "Kon groep niet ophalen, probeer het opnieuw."});
     }
 
     if (!group.admins.includes(userId)) {
-        return next(new HttpError("User not permitted to edit this group", 500));
+        res.status(500).json({message: "Geen rechten om een wedstrijd aan te maken."});
     }
-
 
     let successful = 0;
     let existing = "";
@@ -117,12 +101,12 @@ const addMatches = async (req, res, next) => {
     }
 
 
-    res.status(201).json({message: `Succesfully created ${successful} new match(es).${existing ? existing : ""}`})
+    res.status(201).json({message: `Succesvol ${successful} nieuwe wedstrijd(en) aangemaakt. ${existing ? existing : ""}`})
 
 };
 
 const deleteMatch = async (req, res, next) => {
-    await validateRequest(req, next);
+    await validateRequest(req, res, next);
 
     const userId = req.userData.userId;
     const {matchId, groupId} = req.body;
@@ -131,41 +115,41 @@ const deleteMatch = async (req, res, next) => {
     try {
         match = await Match.findById(matchId);
     } catch (e) {
-        return next(new HttpError("Could not get match, please try again", 500));
+        res.status(500).json({message: "Kon wedstrijd niet ophalen, probeer het opnieuw."});
     }
 
     if (!match) {
-        return next(new HttpError("No match was found.", 404));
+        res.status(404).json({message: "Geen wedstrijd gevonden."});
     }
 
     let group;
     try {
         group = await Group.findById(groupId);
     } catch (e) {
-        return next(new HttpError("Could not get group, please try again", 500));
+        res.status(500).json({message: "Kon groep niet ophalen, probeer het opnieuw."});
     }
 
     if (!group) {
-        return next(new HttpError("No group was found.", 404));
+        res.status(404).json({message: "Kon groep niet vinden, probeer het opnieuw."});
     }
 
     let user;
     try {
         user = await User.findById(userId);
     } catch (e) {
-        return next(new HttpError("Could not get user, please try again", 500));
+        res.status(500).json({message: "Kon gebruiker niet ophalen, probeer het opnieuw."});
     }
 
     if (!user) {
-        return next(new HttpError("No user was found.", 404));
+        res.status(404).json({message: "Kon gebruiker niet vinden, probeer het opnieuw."});
     }
 
     if (!group.matches.includes(match.id)) {
-        return next(new HttpError("The provided match does not belong to the provided group", 404));
+        res.status(404).json({message: "De wedstrijd kon niet bij deze groep gevonden worden."});
     }
 
     if (!group["admins"].includes(user.id)) {
-        return next(new HttpError("The provided user is not permitted to update this group", 403));
+        res.status(403).json({message: "Geen rechten om een wedstrijd te verwijderen."});
     }
 
     //TODO: REMOVE ALL RESULTS WITH MATCHID
@@ -174,10 +158,10 @@ const deleteMatch = async (req, res, next) => {
         await group.matches.pull(match);
         await Match.findByIdAndDelete(match.id);
     } catch (e) {
-        return next(new HttpError("The match could not be removed, please try again", 500));
+        res.status(500).json({message: "Kon wedstrijd niet verwijderen, probeer het opnieuw."});
     }
 
-    res.status(200).json({message: "Succesfully removed the match"});
+    res.status(200).json({message: "Succesvol de wedstrijd verwijderd."});
 };
 
 exports.getMatches = getMatches;
