@@ -1,50 +1,109 @@
 const User = require('../models/user');
 const Group = require('../models/group');
+const Invite = require('../models/invite');
 const validateRequest = require('../helper/valid-checker');
 const HttpError = require('../models/http-error');
+
+const getGroupInfo = async (req, res, next) => {
+    await validateRequest(req, next);
+
+    const groupName = req.params.groupName;
+    const userId = req.userData.userId;
+
+    let group;
+    try {
+        group = await Group.findOne({title: groupName})
+    } catch (e) {
+        res.status(500).send({message: 'Probeer het opnieuw.'})
+    }
+    if (!group) {
+        res.status(500).send({message: 'Er bestaat geen groep met deze naam.'})
+    }
+
+    if (!group.players.includes(userId)) {
+        res.status(403).send({message: 'Je bent geen deel van deze groep.'})
+    }
+
+    let players = [];
+    for (const player of group.players) {
+        let thisPlayer = await User.findById(player._id);
+        players.push({name: thisPlayer.name, id: thisPlayer._id})
+    }
+
+    res.status(200).send({players})
+
+};
+
+const getGroups = async (req, res, next) => {
+    await validateRequest(req, next);
+};
 
 const createGroup = async (req, res, next) => {
     await validateRequest(req, next);
 
+    const {title, invites} = req.body;
     const userId = req.userData.userId;
-    const {title} = req.body;
 
     let existingGroup;
     try {
         existingGroup = await Group.findOne({title: title})
     } catch (e) {
-        return next(new HttpError("Could not create group, please try again", 500));
+        res.status(500).send({message: 'Probeer opnieuw de group aan te maken.'})
     }
     if (existingGroup) {
-        return next(new HttpError("A group with this title already exists, please try a different title", 422));
+        res.status(500).send({message: 'Er bestaat al een groep met deze naam.'})
     }
 
     let user;
     try {
         user = await User.findById(userId);
     } catch (e) {
-        return next(new HttpError("Could not create group, please try again", 500));
+        res.status(500).send({message: 'Probeer opnieuw de group aan te maken.'})
     }
     if (!user) {
-        return next(new HttpError("Could not find user for provided ID", 404));
+        res.status(404).send({message: 'Gebruiker kan niet gevonden worden.'})
     }
 
+    //Create invites
+    console.log(invites);
     try {
         const createdGroup = new Group({
             title,
             players: [user],
             admins: [user],
-            matches: []
+            matches: [],
+            invites: []
         });
 
+        let groupInvites = [];
+        for (const newInviteUserId of invites) {
+            const invite = new Invite({
+                group: createdGroup.id,
+                groupName: createdGroup.title,
+                player: user.id,
+                user: newInviteUserId
+            });
+            await invite.save();
+            let newInviteUser = await User.findById(invite.user);
+            console.log(newInviteUser);
+            newInviteUser.invites.push(invite._id);
+            await newInviteUser.save();
+            groupInvites.push(invite._id);
+        }
+
+        if (groupInvites) {
+            createdGroup.invites = groupInvites;
+        }
+
+        console.log(createdGroup);
+
         await createdGroup.save();
-        user.groups.push(createdGroup);
-        await user.save();
     } catch (e) {
-        return next(new HttpError("Creating group failed, please try again", 500));
+        console.log(e);
+        res.status(500).send({message: 'Het is hier niet gelukt, probeer opnieuw.'})
     }
 
-    res.status(201).json({message: "Succesfully created a new group"});
+    res.status(201).json({message: "Succesvol een groep aangemaakt"});
 };
 
 const addPlayerToGroup = async (req, res, next) => {
@@ -313,6 +372,8 @@ const editGroup = async (req, res, next) => {
     res.status(200).json({message: "Succesfully edited the group"});
 };
 
+exports.getGroupInfo = getGroupInfo;
+exports.getGroups = getGroups;
 exports.createGroup = createGroup;
 exports.addPlayerToGroup = addPlayerToGroup;
 exports.addAdminToGroup = addAdminToGroup;

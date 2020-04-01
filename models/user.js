@@ -8,7 +8,8 @@ const userSchema = new Schema({
     username: {type: String, unique: true, required: true, minlength: 5},
     description: {type: String, required: false},
     password: {type: String, required: true, minlength: 6},
-    groups: [{type: mongoose.Types.ObjectId, required: true, ref: 'Group'}]
+    groups: [{type: mongoose.Types.ObjectId, required: true, ref: 'Group'}],
+    invites: [{type: mongoose.Types.ObjectId, required: false, ref: 'Invite'}]
 });
 
 userSchema.plugin(uniqueValidator);

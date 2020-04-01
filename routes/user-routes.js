@@ -5,7 +5,10 @@ const userController = require('../controllers/user-controller');
 
 const router = express.Router();
 
-router.get("/userinfo/:id", [], userController.getUserInfo);
+router.get("/userinfo", [], userController.getUserInfo);
+router.get("/search/:searchQuery", [], userController.getUsersBySearch);
+
+router.get("/dashboard", [], userController.getDashboardInfo);
 
 router.post("/signup", [
     check('name').not().isEmpty(),

@@ -5,8 +5,11 @@ const groupController = require('../controllers/group-controller');
 
 const router = express.Router();
 
+router.get("/groupinfo/:groupName", groupController.getGroupInfo);
+
 router.post("/create", [
-    check('title').isLength({min: 5})
+    check('title').isLength({min: 5}),
+    check('invites').isArray()
 ], groupController.createGroup);
 
 router.post("/addplayer", [

@@ -6,6 +6,21 @@ const User = require('../models/user');
 const validateRequest = require('../helper/valid-checker');
 const HttpError = require('../models/http-error');
 
+const getDashboardInfo = async (req, res, next) => {
+    await validateRequest(req, next);
+    const userId = req.userData.userId;
+
+    //get invites
+    let user;
+    try {
+        user = await User.findById(userId);
+    } catch (e) {
+        res.status(500).send({message: 'De informatie kan niet opgehaald worden.'})
+    }
+
+    res.status(200).send({message: 'Dashboard', invites: user.invites});
+};
+
 const getUserInfo = async (req, res, next) => {
     await validateRequest(req, next);
 
@@ -27,6 +42,35 @@ const getUserInfo = async (req, res, next) => {
         username: existingUser.username,
         description: existingUser.description
     });
+};
+
+const getUsersBySearch = async (req, res, next) => {
+    await validateRequest(req, next);
+    const userId = req.userData.userId;
+
+    const searchQuery = req.params.searchQuery;
+    console.log("search " + searchQuery);
+
+    let users = await User.find({
+            $and: [
+                {$or: [{username: {$regex: searchQuery}}, {name: {$regex: searchQuery}}, {description: {$regex: searchQuery}}]},
+                {_id: {$ne: userId}}
+            ]
+        }
+        , function (err) {
+            if (err) {
+                res.status(500).send({message: 'Kan geen gebruikers ophalen, probeer het opnieuw.'})
+            }
+        });
+
+    let newusers = users.map(user => ({
+        name: user.name,
+        username: user.username,
+        description: user.description,
+        userId: user._id.toString()
+    }));
+
+    res.send(newusers);
 };
 
 const login = async (req, res, next) => {
@@ -169,6 +213,8 @@ const editUser = async (req, res, next) => {
 };
 
 exports.getUserInfo = getUserInfo;
+exports.getUsersBySearch = getUsersBySearch;
+exports.getDashboardInfo = getDashboardInfo;
 exports.signup = signup;
 exports.login = login;
 exports.editUser = editUser;
