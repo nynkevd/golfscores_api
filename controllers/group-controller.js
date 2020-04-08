@@ -6,12 +6,12 @@ const validateRequest = require('../helper/valid-checker');
 const getGroupInfo = async (req, res, next) => {
     await validateRequest(req, res, next);
 
-    const groupName = req.params.groupName;
+    const groupId = req.params.groupId;
     const userId = req.userData.userId;
 
     let group;
     try {
-        group = await Group.findOne({title: groupName})
+        group = await Group.findById(groupId);
     } catch (e) {
         res.status(500).send({message: 'Probeer het opnieuw.'})
     }
@@ -65,8 +65,9 @@ const createGroup = async (req, res, next) => {
 
     //Create invites
     console.log(invites);
+    let createdGroup;
     try {
-        const createdGroup = new Group({
+        createdGroup = new Group({
             title,
             players: [user],
             admins: [user],
@@ -79,15 +80,15 @@ const createGroup = async (req, res, next) => {
             const invite = new Invite({
                 group: createdGroup.id,
                 groupName: createdGroup.title,
-                player: user.id,
+                inviter: user.id,
                 user: newInviteUserId
             });
             await invite.save();
             let newInviteUser = await User.findById(invite.user);
             console.log(newInviteUser);
-            newInviteUser.invites.push(invite._id);
+            newInviteUser.invites.push(invite);
             await newInviteUser.save();
-            groupInvites.push(invite._id);
+            groupInvites.push(invite);
         }
 
         if (groupInvites) {
@@ -102,58 +103,58 @@ const createGroup = async (req, res, next) => {
         res.status(500).send({message: 'Het is niet gelukt, probeer opnieuw.'});
     }
 
-    res.status(201).json({message: "Succesvol een groep aangemaakt"});
+    res.status(201).json({message: "Succesvol een groep aangemaakt", groupId: createdGroup.id});
 };
 
-const addPlayerToGroup = async (req, res, next) => {
-    await validateRequest(req, res, next);
-
-    const userId = req.userData.userId;
-    const {newPlayers, groupId} = req.body;
-
-    let existingGroup;
-    try {
-        existingGroup = await Group.findById(groupId);
-    } catch (e) {
-        res.status(401).send({message: 'Nieuwe spelers kunnen niet worden toegevoegd.'});
-    }
-    if (!existingGroup) {
-        res.status(404).send({message: 'De groep kan niet worden gevonden.'});
-    }
-
-    const admins = existingGroup['admins'];
-    if (!admins.includes(userId)) {
-        res.status(405).send({message: 'Geen rechten om deze groep aan te passen.'});
-    }
-
-    const existingPlayers = existingGroup['players'];
-    let playersToAdd = [];
-    newPlayers.forEach(player => {
-        if (!existingPlayers.includes(player)) {
-            playersToAdd.push(player);
-        }
-    });
-
-    if (!playersToAdd.length > 0) {
-        res.status(401).send({message: 'Geen nieuwe gebruikers toegevoegd.'});
-    }
-
-    try {
-        for (const newPlayer of playersToAdd) {
-            let player = await User.findById(newPlayer);
-            existingGroup.players.push(player);
-            await existingGroup.save();
-            player.groups.push(existingGroup);
-            await player.save();
-        }
-    } catch (e) {
-        res.status(500).send({message: 'Gebruikers kunnen niet worden toegevoegd, probeer het opnieuw.'});
-    }
-
-    //TODO create results for the group matches for the player
-
-    res.status(200).json({message: "Succesvol een speler toegevoegd."});
-};
+// const addPlayerToGroup = async (req, res, next) => {
+//     await validateRequest(req, res, next);
+//
+//     const userId = req.userData.userId;
+//     const {newPlayers, groupId} = req.body;
+//
+//     let existingGroup;
+//     try {
+//         existingGroup = await Group.findById(groupId);
+//     } catch (e) {
+//         res.status(401).send({message: 'Nieuwe spelers kunnen niet worden toegevoegd.'});
+//     }
+//     if (!existingGroup) {
+//         res.status(404).send({message: 'De groep kan niet worden gevonden.'});
+//     }
+//
+//     const admins = existingGroup['admins'];
+//     if (!admins.includes(userId)) {
+//         res.status(405).send({message: 'Geen rechten om deze groep aan te passen.'});
+//     }
+//
+//     const existingPlayers = existingGroup['players'];
+//     let playersToAdd = [];
+//     newPlayers.forEach(player => {
+//         if (!existingPlayers.includes(player)) {
+//             playersToAdd.push(player);
+//         }
+//     });
+//
+//     if (!playersToAdd.length > 0) {
+//         res.status(401).send({message: 'Geen nieuwe gebruikers toegevoegd.'});
+//     }
+//
+//     try {
+//         for (const newPlayer of playersToAdd) {
+//             let player = await User.findById(newPlayer);
+//             existingGroup.players.push(player);
+//             await existingGroup.save();
+//             player.groups.push(existingGroup);
+//             await player.save();
+//         }
+//     } catch (e) {
+//         res.status(500).send({message: 'Gebruikers kunnen niet worden toegevoegd, probeer het opnieuw.'});
+//     }
+//
+//     //TODO create results for the group matches for the player
+//
+//     res.status(200).json({message: "Succesvol een speler toegevoegd."});
+// };
 
 const addAdminToGroup = async (req, res, next) => {
     await validateRequest(req, res, next);
@@ -373,7 +374,7 @@ const editGroup = async (req, res, next) => {
 exports.getGroupInfo = getGroupInfo;
 exports.getGroups = getGroups;
 exports.createGroup = createGroup;
-exports.addPlayerToGroup = addPlayerToGroup;
+// exports.addPlayerToGroup = addPlayerToGroup;
 exports.addAdminToGroup = addAdminToGroup;
 exports.removePlayer = removePlayer;
 exports.removeAdmin = removeAdmin;

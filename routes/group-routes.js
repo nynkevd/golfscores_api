@@ -5,17 +5,17 @@ const groupController = require('../controllers/group-controller');
 
 const router = express.Router();
 
-router.get("/groupinfo/:groupName", groupController.getGroupInfo);
+router.get("/groupinfo/:groupId", groupController.getGroupInfo);
 
 router.post("/create", [
     check('title').isLength({min: 5}),
     check('invites').isArray()
 ], groupController.createGroup);
 
-router.post("/addplayer", [
-    check('newPlayers').isArray({min: 1}),
-    check('groupId').not().isEmpty()
-], groupController.addPlayerToGroup);
+// router.post("/addplayer", [
+//     check('newPlayers').isArray({min: 1}),
+//     check('groupId').not().isEmpty()
+// ], groupController.addPlayerToGroup);
 
 router.post("/addadmin", [
     check('newAdminId').not().isEmpty(),

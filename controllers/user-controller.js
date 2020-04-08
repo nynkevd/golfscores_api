@@ -17,7 +17,7 @@ const getDashboardInfo = async (req, res, next) => {
         res.status(500).send({message: 'De informatie kan niet opgehaald worden.'})
     }
 
-    res.status(200).send({message: 'Dashboard', invites: user.invites});
+    res.status(200).send({message: 'Dashboard', invites: user.invites, groups: user.groups});
 };
 
 const getUserInfo = async (req, res, next) => {
