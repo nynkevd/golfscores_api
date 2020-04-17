@@ -1,7 +1,62 @@
+const moment = require('moment');
+
 const User = require('../models/user');
 const Group = require('../models/group');
+const Match = require('../models/match');
 const Invite = require('../models/invite');
 const validateRequest = require('../helper/valid-checker');
+
+const checkIfAdmin = async (req, res, next) => {
+    await validateRequest(req, res, next);
+
+    const userId = req.userData.userId;
+    const {groupId} = req.params;
+
+    const group = await Group.findById(groupId);
+
+    if (group.admins.includes(userId)) {
+        return res.status(200).send(true);
+    } else {
+        return res.status(403).send(false);
+    }
+};
+
+const getGroupItemInfo = async (req, res, next) => {
+    await validateRequest(req, res, next);
+
+    const {groupId} = req.params;
+    const userId = req.userData.userId;
+
+    let group;
+    try {
+        group = await Group.findById(groupId);
+    } catch (e) {
+        return res.status(500).send({message: 'Probeer het opnieuw.'})
+    }
+    if (!group) {
+        return res.status(404).send({message: 'Geen groep gevonden.'})
+    }
+
+    if (!group.players.includes(userId)) {
+        return res.status(403).send({message: 'Je bent geen deel van deze groep.'})
+    }
+
+    return res.status(200).send({
+        groupName: group.title,
+        first: {
+            player: 'Noa',
+            score: 8
+        }, second: {
+            player: 'Anouk',
+            score: 6
+        }, third: {
+            player: 'Lara',
+            score: 5
+        }
+    });
+
+    // return res.status(200).send(group);
+};
 
 const getGroupInfo = async (req, res, next) => {
     await validateRequest(req, res, next);
@@ -13,28 +68,159 @@ const getGroupInfo = async (req, res, next) => {
     try {
         group = await Group.findById(groupId);
     } catch (e) {
-        res.status(500).send({message: 'Probeer het opnieuw.'})
+        return res.status(500).send({message: 'Probeer het opnieuw.'});
     }
     if (!group) {
-        res.status(500).send({message: 'Er bestaat geen groep met deze naam.'})
+        return res.status(404).send({message: 'Geen groep gevonden.'});
     }
 
     if (!group.players.includes(userId)) {
-        res.status(403).send({message: 'Je bent geen deel van deze groep.'})
+        return res.status(403).send({message: 'Je bent geen deel van deze groep.'});
     }
 
+    let isAdmin = false;
+    if (group.admins.includes(userId)) {
+        isAdmin = true;
+    }
+
+    //TODO: Remove this and change to complete results
     let players = [];
     for (const player of group.players) {
         let thisPlayer = await User.findById(player._id);
         players.push({name: thisPlayer.name, id: thisPlayer._id})
     }
 
-    res.status(200).send({players})
+    let matches = [];
+    try {
+        let thisMatches = await Match.find({group: group, date: {$gt: moment().format()}}).sort({date: 'asc'}).limit(3);
+        if (thisMatches) {
+            for (const match of thisMatches) {
+                if (!!Object.keys(match.results).length) {
+                    let sortedResults = match.results.sort((a, b) => {
+                        return b.score - a.score;
+                    });
+                    sortedResults = sortedResults.slice(0, 3);
+                    matches.push({
+                        date: moment(match.date).format('DD-MM-YYYY'),
+                        id: match._id,
+                        results: sortedResults
+                    });
+                } else {
+                    matches.push({date: moment(match.date).format('DD-MM-YYYY'), id: match._id, results: null});
+                }
+            }
+        }
+    } catch (e) {
+        return res.status(500).send({message: 'Probeer het opnieuw.'});
+    }
+
+    let matchToday = await Match.findOne({group: group, date: {$eq: moment().startOf('day').format()}});
+    if (matchToday) {
+        if (!!Object.keys(matchToday.results).length) {
+            let sortedResults = matchToday.results.sort((a, b) => {
+                return b.score - a.score;
+            });
+            sortedResults = sortedResults.slice(0, 3);
+            matchToday = {
+                date: moment(matchToday.date).format('DD-MM-YYYY'),
+                id: matchToday._id,
+                results: sortedResults
+            };
+        } else {
+            matchToday = {date: moment(matchToday.date).format('DD-MM-YYYY'), id: matchToday._id, results: null};
+        }
+    }
+
+    let prevMatches = [];
+    try {
+        let thisMatches = await Match.find({
+            group: group,
+            date: {$lte: moment().subtract(1, "days").format()}
+        }).sort({date: 'desc'}).limit(3);
+        if (thisMatches) {
+            for (const match of thisMatches) {
+                if (!!Object.keys(match.results).length) {
+                    let sortedResults = match.results.sort((a, b) => {
+                        return b.score - a.score;
+                    });
+                    sortedResults = sortedResults.slice(0, 3);
+                    prevMatches.push({
+                        date: moment(match.date).format('DD-MM-YYYY'),
+                        id: match._id,
+                        results: sortedResults
+                    });
+                } else {
+                    prevMatches.push({date: moment(match.date).format('DD-MM-YYYY'), id: match._id, results: null});
+                }
+            }
+        }
+
+    } catch (e) {
+        return res.status(500).send({message: 'Probeer het opnieuw.'});
+    }
+
+    return res.status(200).send({groupName: group.title, players, isAdmin, matchToday, matches, prevMatches});
 
 };
 
-const getGroups = async (req, res, next) => {
+const getGroupAdminInfo = async (req, res, next) => {
     await validateRequest(req, res, next);
+    const groupId = req.params.groupId;
+    const userId = req.userData.userId;
+
+    let group;
+    try {
+        group = await Group.findById(groupId);
+    } catch (e) {
+        return res.status(500).send({message: 'Probeer het opnieuw.'})
+    }
+    if (!group) {
+        return res.status(404).send({message: 'Geen groep gevonden.'})
+    }
+
+    if (!group.players.includes(userId)) {
+        return res.status(403).send({message: 'Je bent geen deel van deze groep.'})
+    }
+
+    let matches = [];
+    let thisMatches = await Match.find({
+        group: groupId,
+        date: {$gte: moment().subtract(1, "week").format(), $lte: moment().add(1, "week").format()}
+    }).sort({date: 'asc'});
+    for (const match of thisMatches) {
+        let thisMatch = await Match.findById(match);
+        matches.push({
+            date: moment(thisMatch.date).format('DD-MM-YYYY'),
+            id: thisMatch._id,
+            hasResults: !!Object.keys(thisMatch.results).length
+        })
+    }
+
+    let players = [];
+    let possibleAdmins = [];
+    for (const player of group.players) {
+        let thisPlayer = await User.findById(player._id);
+        players.push({name: thisPlayer.name, id: thisPlayer._id})
+        if (!group.admins.includes(thisPlayer._id)) {
+            possibleAdmins.push({name: thisPlayer.name, id: thisPlayer._id});
+        }
+    }
+
+    let admins = [];
+    for (const admin of group.admins) {
+        let thisAdmin = await User.findById(admin._id);
+        admins.push({name: thisAdmin.name, id: thisAdmin._id})
+    }
+
+    let invites = [];
+    for (const invite of group.invites) {
+        let thisInvite = await Invite.findById(invite);
+        let thisPlayer = await User.findById(thisInvite.user);
+        invites.push({player: thisPlayer.name, id: invite})
+    }
+
+    return res.status(200).send({matches, players, invites, admins, possibleAdmins})
+
 };
 
 const createGroup = async (req, res, next) => {
@@ -47,24 +233,23 @@ const createGroup = async (req, res, next) => {
     try {
         existingGroup = await Group.findOne({title: title})
     } catch (e) {
-        res.status(500).send({message: 'Probeer opnieuw de group aan te maken.'})
+        return res.status(500).send({message: 'Probeer opnieuw de group aan te maken.'})
     }
     if (existingGroup) {
-        res.status(500).send({message: 'Er bestaat al een groep met deze naam.'})
+        return res.status(500).send({message: 'Er bestaat al een groep met deze naam.'})
     }
 
     let user;
     try {
         user = await User.findById(userId);
     } catch (e) {
-        res.status(500).send({message: 'Probeer opnieuw de group aan te maken.'})
+        return res.status(500).send({message: 'Probeer opnieuw de group aan te maken.'})
     }
     if (!user) {
-        res.status(404).send({message: 'Gebruiker kan niet gevonden worden.'})
+        return res.status(404).send({message: 'Gebruiker kan niet gevonden worden.'})
     }
 
     //Create invites
-    console.log(invites);
     let createdGroup;
     try {
         createdGroup = new Group({
@@ -85,7 +270,6 @@ const createGroup = async (req, res, next) => {
             });
             await invite.save();
             let newInviteUser = await User.findById(invite.user);
-            console.log(newInviteUser);
             newInviteUser.invites.push(invite);
             await newInviteUser.save();
             groupInvites.push(invite);
@@ -95,66 +279,16 @@ const createGroup = async (req, res, next) => {
             createdGroup.invites = groupInvites;
         }
 
-        console.log(createdGroup);
+        user.groups.push(createdGroup);
+        await user.save();
 
         await createdGroup.save();
     } catch (e) {
-        console.log(e);
-        res.status(500).send({message: 'Het is niet gelukt, probeer opnieuw.'});
+        return res.status(500).send({message: 'Het is niet gelukt, probeer opnieuw.'});
     }
 
-    res.status(201).json({message: "Succesvol een groep aangemaakt", groupId: createdGroup.id});
+    return res.status(201).json({message: "Succesvol een groep aangemaakt", groupId: createdGroup.id});
 };
-
-// const addPlayerToGroup = async (req, res, next) => {
-//     await validateRequest(req, res, next);
-//
-//     const userId = req.userData.userId;
-//     const {newPlayers, groupId} = req.body;
-//
-//     let existingGroup;
-//     try {
-//         existingGroup = await Group.findById(groupId);
-//     } catch (e) {
-//         res.status(401).send({message: 'Nieuwe spelers kunnen niet worden toegevoegd.'});
-//     }
-//     if (!existingGroup) {
-//         res.status(404).send({message: 'De groep kan niet worden gevonden.'});
-//     }
-//
-//     const admins = existingGroup['admins'];
-//     if (!admins.includes(userId)) {
-//         res.status(405).send({message: 'Geen rechten om deze groep aan te passen.'});
-//     }
-//
-//     const existingPlayers = existingGroup['players'];
-//     let playersToAdd = [];
-//     newPlayers.forEach(player => {
-//         if (!existingPlayers.includes(player)) {
-//             playersToAdd.push(player);
-//         }
-//     });
-//
-//     if (!playersToAdd.length > 0) {
-//         res.status(401).send({message: 'Geen nieuwe gebruikers toegevoegd.'});
-//     }
-//
-//     try {
-//         for (const newPlayer of playersToAdd) {
-//             let player = await User.findById(newPlayer);
-//             existingGroup.players.push(player);
-//             await existingGroup.save();
-//             player.groups.push(existingGroup);
-//             await player.save();
-//         }
-//     } catch (e) {
-//         res.status(500).send({message: 'Gebruikers kunnen niet worden toegevoegd, probeer het opnieuw.'});
-//     }
-//
-//     //TODO create results for the group matches for the player
-//
-//     res.status(200).json({message: "Succesvol een speler toegevoegd."});
-// };
 
 const addAdminToGroup = async (req, res, next) => {
     await validateRequest(req, res, next);
@@ -166,25 +300,25 @@ const addAdminToGroup = async (req, res, next) => {
     try {
         existingGroup = await Group.findById(groupId);
     } catch (e) {
-        res.status(500).json({message: "Kon geen nieuwe admin toevoegen, probeer het opnieuw."});
+        return res.status(500).json({message: "Kon geen nieuwe admin toevoegen, probeer het opnieuw."});
     }
     if (!existingGroup) {
-        res.status(404).json({message: "De groep kon niet gevonden worden, probeer het opnieuw."});
+        return res.status(404).json({message: "De groep kon niet gevonden worden, probeer het opnieuw."});
     }
 
     const admins = existingGroup['admins'];
     if (!admins.includes(userId)) {
-        res.status(405).json({message: "Geen rechten om deze groep aan te passen."});
+        return res.status(405).json({message: "Geen rechten om deze groep aan te passen."});
     }
 
     const existingPlayers = existingGroup['players'];
     const existingAdmins = existingGroup['admins'];
     if (!existingPlayers.includes(newAdminId)) {
-        res.status(500).json({message: "Kon geen nieuwe admin toevoegen, probeer het opnieuw."});
+        return res.status(500).json({message: "Kon geen nieuwe admin toevoegen, probeer het opnieuw."});
     }
 
     if (!(existingPlayers.includes(newAdminId) && !existingAdmins.includes(newAdminId))) {
-        res.status(500).json({message: "De speler kan niet worden toegevoegd."});
+        return res.status(500).json({message: "De speler kan niet worden toegevoegd."});
     }
 
     try {
@@ -192,10 +326,10 @@ const addAdminToGroup = async (req, res, next) => {
         existingGroup.admins.push(admin);
         await existingGroup.save();
     } catch (e) {
-        res.status(500).json({message: "Kon geen nieuwe admin toevoegen, probeer het opnieuw"});
+        return res.status(500).json({message: "Kon geen nieuwe admin toevoegen, probeer het opnieuw"});
     }
 
-    res.status(200).json({message: "Succesvol een admin toegevoegd."});
+    return res.status(200).json({message: "Succesvol een admin toegevoegd."});
 };
 
 const removePlayer = async (req, res, next) => {
@@ -205,34 +339,34 @@ const removePlayer = async (req, res, next) => {
     const {playerId, groupId} = req.body;
 
     if (playerId === userId) {
-        res.status(500).json({message: "Kan niet jezelf verwijderen."});
+        return res.status(500).json({message: "Kan niet jezelf verwijderen."});
     }
 
     let selectedGroup;
     try {
         selectedGroup = await Group.findById(groupId);
     } catch (e) {
-        res.status(500).json({message: "Kon de speler niet verwijderen, probeer het opnieuw."});
+        return res.status(500).json({message: "Kon de speler niet verwijderen, probeer het opnieuw."});
     }
 
     let selectedPlayer;
     try {
         selectedPlayer = await User.findById(playerId);
     } catch (e) {
-        res.status(500).json({message: "Kon de speler niet verwijderen, probeer het opnieuw."});
+        return res.status(500).json({message: "Kon de speler niet verwijderen, probeer het opnieuw."});
     }
 
     const admins = selectedGroup['admins'];
     let isAdmin = false;
     if (!admins.includes(userId)) {
-        res.status(403).json({message: "Geen rechten om deze speler te verwijderen."});
+        return res.status(403).json({message: "Geen rechten om deze speler te verwijderen."});
     } else {
         isAdmin = true;
     }
 
     const players = selectedGroup['players'];
     if (!players.includes(playerId)) {
-        res.status(404).json({message: "De speler is niet in deze groep gevonden."});
+        return res.status(404).json({message: "De speler is niet in deze groep gevonden."});
     }
 
     try {
@@ -246,10 +380,10 @@ const removePlayer = async (req, res, next) => {
         selectedPlayer.save();
 
     } catch (e) {
-        res.status(500).json({message: "Kon de speler niet verwijderen, probeer het opnieuw."});
+        return res.status(500).json({message: "Kon de speler niet verwijderen, probeer het opnieuw."});
     }
 
-    res.status(200).json({message: "Succesvol de speler verwijderd."});
+    return res.status(200).json({message: "Succesvol de speler verwijderd."});
 };
 
 const removeAdmin = async (req, res, next) => {
@@ -259,23 +393,23 @@ const removeAdmin = async (req, res, next) => {
     const {adminId, groupId} = req.body;
 
     if (adminId === userId) {
-        res.status(500).json({message: "Kan niet jezelf verwijderen."});
+        return res.status(500).json({message: "Kan niet jezelf verwijderen."});
     }
 
     let selectedGroup;
     try {
         selectedGroup = await Group.findById(groupId);
     } catch (e) {
-        res.status(500).json({message: "Kon admin rechten niet intrekken."});
+        return res.status(500).json({message: "Kon admin rechten niet intrekken."});
     }
 
     const admins = selectedGroup['admins'];
     if (!admins.includes(adminId)) {
-        res.status(500).json({message: "Kon admin rechten niet intrekken."});
+        return res.status(500).json({message: "Kon admin rechten niet intrekken."});
     }
 
     if (admins.length === 1) {
-        res.status(500).json({message: "Kon admin rechten niet intrekken, minimaal 1 admin vereist."});
+        return res.status(500).json({message: "Kon admin rechten niet intrekken, minimaal 1 admin vereist."});
     }
 
     try {
@@ -283,10 +417,10 @@ const removeAdmin = async (req, res, next) => {
         selectedGroup.admins.pull(selectedAdmin);
         selectedGroup.save();
     } catch (e) {
-        res.status(500).json({message: "Kon admin rechten niet intrekken."});
+        return res.status(500).json({message: "Kon admin rechten niet intrekken."});
     }
 
-    res.status(200).json({message: "Succesvol admin rechten verwijderd."});
+    return res.status(200).json({message: "Succesvol admin rechten verwijderd."});
 
 };
 
@@ -300,18 +434,18 @@ const removeGroup = async (req, res, next) => {
     try {
         selectedGroup = await Group.findById(groupId);
     } catch (e) {
-        res.status(500).json({message: "Kon groep niet verwijderen, probeer het opnieuw."});
+        return res.status(500).json({message: "Kon groep niet verwijderen, probeer het opnieuw."});
     }
 
     let selectedUser;
     try {
         selectedUser = await User.findById(userId);
     } catch (e) {
-        res.status(500).json({message: "Kon groep niet verwijderen, probeer het opnieuw."});
+        return res.status(500).json({message: "Kon groep niet verwijderen, probeer het opnieuw."});
     }
 
     if (!selectedGroup['admins'].includes(selectedUser.id)) {
-        res.status(403).json({message: "Geen rechten om de groep te verwijderen."});
+        return res.status(403).json({message: "Geen rechten om de groep te verwijderen."});
     }
 
     let players = selectedGroup['players'];
@@ -321,7 +455,7 @@ const removeGroup = async (req, res, next) => {
             thisPlayer.groups.pull(selectedGroup);
             await thisPlayer.save();
         } catch (e) {
-            res.status(500).json({message: "Kon groep niet verwijderen, probeer het opnieuw."});
+            return res.status(500).json({message: "Kon groep niet verwijderen, probeer het opnieuw."});
         }
     }
 
@@ -331,10 +465,10 @@ const removeGroup = async (req, res, next) => {
     try {
         await Group.findByIdAndDelete(groupId);
     } catch (err) {
-        res.status(500).json({message: "Kon groep niet verwijderen, probeer het opnieuw."});
+        return res.status(500).json({message: "Kon groep niet verwijderen, probeer het opnieuw."});
     }
 
-    res.status(200).json({message: "Succesvol de groep verwijderd."});
+    return res.status(200).json({message: "Succesvol de groep verwijderd."});
 };
 
 const editGroup = async (req, res, next) => {
@@ -347,32 +481,41 @@ const editGroup = async (req, res, next) => {
     try {
         selectedGroup = await Group.findById(groupId);
     } catch (e) {
-        res.status(500).json({message: "Kon groep niet aanpassen, probeer het opnieuw."});
+        return res.status(500).json({message: "Kon groep niet aanpassen, probeer het opnieuw."});
     }
 
     let selectedUser;
     try {
         selectedUser = await User.findById(userId);
     } catch (e) {
-        res.status(500).json({message: "Kon groep niet aanpassen, probeer het opnieuw."});
+        return res.status(500).json({message: "Kon groep niet aanpassen, probeer het opnieuw."});
     }
 
     if (!selectedGroup['admins'].includes(selectedUser.id)) {
-        res.status(403).json({message: "Geen rechten om de groep aan te passen."});
+        return res.status(403).json({message: "Geen rechten om de groep aan te passen."});
     }
 
     try {
         selectedGroup.title = title;
         selectedGroup.save();
     } catch {
-        res.status(500).json({message: "Kon groep niet aanpassen, probeer het opnieuw."});
+        return res.status(500).json({message: "Kon groep niet aanpassen, probeer het opnieuw."});
     }
 
-    res.status(200).json({message: "Succesvol de groep aangepast."});
+    return res.status(200).json({message: "Succesvol de groep aangepast."});
 };
 
+nestedSort = (prop1, prop2 = null, direction = 'asc') => (e1, e2) => {
+    const a = prop2 ? e1[prop1][prop2] : e1[prop1],
+        b = prop2 ? e2[prop1][prop2] : e2[prop1],
+        sortOrder = direction === "asc" ? 1 : -1
+    return (a < b) ? -sortOrder : (a > b) ? sortOrder : 0;
+}
+
+exports.checkIfAdmin = checkIfAdmin;
 exports.getGroupInfo = getGroupInfo;
-exports.getGroups = getGroups;
+exports.getGroupAdminInfo = getGroupAdminInfo;
+exports.getGroupItemInfo = getGroupItemInfo;
 exports.createGroup = createGroup;
 // exports.addPlayerToGroup = addPlayerToGroup;
 exports.addAdminToGroup = addAdminToGroup;

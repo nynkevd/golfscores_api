@@ -5,7 +5,10 @@ const groupController = require('../controllers/group-controller');
 
 const router = express.Router();
 
+router.get("/checkIfAdmin/:groupId", groupController.checkIfAdmin);
 router.get("/groupinfo/:groupId", groupController.getGroupInfo);
+router.get("/groupadmininfo/:groupId", groupController.getGroupAdminInfo);
+router.get("/groupiteminfo/:groupId", groupController.getGroupItemInfo);
 
 router.post("/create", [
     check('title').isLength({min: 5}),

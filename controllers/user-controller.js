@@ -14,10 +14,10 @@ const getDashboardInfo = async (req, res, next) => {
     try {
         user = await User.findById(userId);
     } catch (e) {
-        res.status(500).send({message: 'De informatie kan niet opgehaald worden.'})
+        return res.status(500).send({message: 'De informatie kan niet opgehaald worden.'})
     }
 
-    res.status(200).send({message: 'Dashboard', invites: user.invites, groups: user.groups});
+    return res.status(200).send({message: 'Dashboard', invites: user.invites, groups: user.groups});
 };
 
 const getUserInfo = async (req, res, next) => {
@@ -29,14 +29,14 @@ const getUserInfo = async (req, res, next) => {
     try {
         existingUser = await User.findById(userId);
     } catch (e) {
-        res.status(500).send({message: 'De informatie kan niet opgehaald worden.'})
+        return res.status(500).send({message: 'De informatie kan niet opgehaald worden.'})
     }
 
     if (!existingUser) {
-        res.status(404).send({message: 'Kan de gebruiker niet vinden.'})
+        return res.status(404).send({message: 'Kan de gebruiker niet vinden.'})
     }
 
-    res.status(200).json({
+    return res.status(200).json({
         name: existingUser.name,
         username: existingUser.username,
         description: existingUser.description
@@ -48,7 +48,6 @@ const getUsersBySearch = async (req, res, next) => {
     const userId = req.userData.userId;
 
     const searchQuery = req.params.searchQuery;
-    console.log("search " + searchQuery);
 
     let users = await User.find({
             $and: [
@@ -58,7 +57,7 @@ const getUsersBySearch = async (req, res, next) => {
         }
         , function (err) {
             if (err) {
-                res.status(500).send({message: 'Kan geen gebruikers ophalen, probeer het opnieuw.'})
+                return res.status(500).send({message: 'Kan geen gebruikers ophalen, probeer het opnieuw.'})
             }
         });
 
@@ -78,22 +77,22 @@ const login = async (req, res, next) => {
     try {
         existingUser = await User.findOne({username: username});
     } catch (e) {
-        res.status(500).send({message: 'Kan niet inloggen, probeer het opnieuw.'})
+        return res.status(500).send({message: 'Kan niet inloggen, probeer het opnieuw.'})
     }
 
     if (!existingUser) {
-        res.status(500).send({message: 'Kan niet inloggen, probeer het opnieuw.'})
+        return res.status(500).send({message: 'Kan niet inloggen, probeer het opnieuw.'})
     }
 
     let isValidPassword = false;
     try {
         isValidPassword = await bcrypt.compare(password, existingUser.password);
     } catch (e) {
-        res.status(500).send({message: 'Kan niet inloggen, probeer het opnieuw.'})
+        return res.status(500).send({message: 'Kan niet inloggen, probeer het opnieuw.'})
     }
 
     if (!isValidPassword) {
-        res.status(403).send({message: 'Wachtwoord klopt niet.'})
+        return res.status(403).send({message: 'Wachtwoord klopt niet.'})
     }
 
     let token;
@@ -103,7 +102,7 @@ const login = async (req, res, next) => {
             process.env.JWT_KEY,
             {expiresIn: '7d'});
     } catch (e) {
-        res.status(500).json({message: "Kan niet inloggen, probeer het opnieuw."}).send();
+        return res.status(500).json({message: "Kan niet inloggen, probeer het opnieuw."}).send();
         next();
     }
 
@@ -114,28 +113,27 @@ const login = async (req, res, next) => {
 const signup = async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        res.status(422).send({message: 'Kan niet aanmelden, controleer de velden.'});
+        return res.status(422).send({message: 'Kan niet aanmelden, controleer de velden.'});
     }
 
     const {name, username, description, password} = req.body;
-    console.log(description);
 
     let existingUser;
     try {
         existingUser = await User.findOne({username: username});
     } catch (e) {
-        res.status(500).send({message: 'Kan niet aanmelden, probeer het opnieuw.'});
+        return res.status(500).send({message: 'Kan niet aanmelden, probeer het opnieuw.'});
     }
 
     if (existingUser) {
-        res.status(422).send({message: 'Er bestaat al een gebruiker met deze gebruikersnaam'})
+        return res.status(422).send({message: 'Er bestaat al een gebruiker met deze gebruikersnaam'})
     }
 
     let hashedPassword;
     try {
         hashedPassword = await bcrypt.hash(password, 12);
     } catch (e) {
-        res.status(500).send({message: 'Kan niet aanmelden, probeer het opnieuw.'});
+        return res.status(500).send({message: 'Kan niet aanmelden, probeer het opnieuw.'});
     }
 
     const createdUser = new User({
@@ -149,7 +147,7 @@ const signup = async (req, res, next) => {
     try {
         await createdUser.save();
     } catch (e) {
-        res.status(500).send({message: 'Kan niet aanmelden, probeer het opnieuw.'});
+        return res.status(500).send({message: 'Kan niet aanmelden, probeer het opnieuw.'});
     }
 
     let token;
@@ -159,10 +157,10 @@ const signup = async (req, res, next) => {
             process.env.JWT_KEY,
             {expiresIn: '7d'});
     } catch (e) {
-        res.status(500).send({message: 'Kan niet aanmelden, probeer het opnieuw.'});
+        return res.status(500).send({message: 'Kan niet aanmelden, probeer het opnieuw.'});
     }
 
-    res.status(201).json({userId: createdUser.id, username: createdUser.username, token: token});
+    return res.status(201).json({userId: createdUser.id, username: createdUser.username, token: token});
 };
 
 const editUser = async (req, res, next) => {
@@ -171,31 +169,27 @@ const editUser = async (req, res, next) => {
     const userId = req.userData.userId;
     const {name, username, description, currentPassword, newPassword} = req.body;
 
-    console.log("description  " + description);
-
     let user;
     try {
         user = await User.findById(userId);
     } catch (e) {
-        res.status(500).json({message: "Kon gebruiker niet ophalen, probeer het opnieuw."});
+        return res.status(500).json({message: "Kon gebruiker niet ophalen, probeer het opnieuw."});
     }
 
     if (!await bcrypt.compare(currentPassword, user.password)) {
-        res.status(403).json({message: "Wachtwoord onjuist."});
+        return res.status(403).json({message: "Wachtwoord onjuist."});
     }
 
     try {
-        console.log("checking username");
         let existingUser = !!await User.findOne({username: username});
         if (existingUser && user.username !== username) {
-            res.status(500).json({message: "Er bestaat al een gebruiker met deze gebruikersnaam."});
+            return res.status(500).json({message: "Er bestaat al een gebruiker met deze gebruikersnaam."});
         } else if (user.username !== username) {
-            console.log("Changing username");
             user.username = username;
             await user.save();
         }
     } catch (e) {
-        res.status(500).json({message: "Lukte niet om te updaten."});
+        return res.status(500).json({message: "Lukte niet om te updaten."});
     }
 
     try {
@@ -204,10 +198,10 @@ const editUser = async (req, res, next) => {
         user.name = name;
         await user.save();
     } catch (e) {
-        res.status(500).json({message: "Lukte niet om te updaten."});
+        return res.status(500).json({message: "Lukte niet om te updaten."});
     }
 
-    res.status(200).json({message: "Succesvol de gebruiker geüpdate"});
+    return res.status(200).json({message: "Succesvol de gebruiker geüpdate"});
 
 };
 

@@ -8,7 +8,8 @@ const groupSchema = new Schema({
     players: [{type: mongoose.Types.ObjectId, required: true, ref: 'User'}],
     admins: [{type: mongoose.Types.ObjectId, required: true, ref: 'User'}],
     matches: [{type: mongoose.Types.ObjectId, required: true, ref: 'Match'}],
-    invites: [{type: mongoose.Types.ObjectId, required: true, ref: 'Invite'}]
+    invites: [{type: mongoose.Types.ObjectId, required: true, ref: 'Invite'}],
+    standings: []
 });
 
 groupSchema.plugin(uniqueValidator);
