@@ -41,21 +41,18 @@ const getGroupItemInfo = async (req, res, next) => {
         return res.status(403).send({message: 'Je bent geen deel van deze groep.'})
     }
 
-    return res.status(200).send({
-        groupName: group.title,
-        first: {
-            player: 'Noa',
-            score: 8
-        }, second: {
-            player: 'Anouk',
-            score: 6
-        }, third: {
-            player: 'Lara',
-            score: 5
-        }
+    let standings = group.standings;
+    let sortedStandings = standings.sort((a, b) => {
+        return b.average - a.average;
     });
+    sortedStandings = sortedStandings.slice(0, 3);
+    let topThree = [];
 
-    // return res.status(200).send(group);
+    for (const player of sortedStandings) {
+        topThree.push({name: player.name, average: player.average})
+    }
+
+    return res.status(200).send({groupName: group.title, standings: topThree})
 };
 
 const getGroupInfo = async (req, res, next) => {

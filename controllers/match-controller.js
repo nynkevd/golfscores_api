@@ -77,13 +77,15 @@ const enterMatchResults = async (req, res, next) => {
 
     try {
         let matchResults = [];
-        let groupResults = group.standings;
-        for (let [player, score] of Object.entries(scores)) {
+        let groupResults = group.standings || [];
+        let thisScores = Object.entries(scores);
+        for (const thisScore of thisScores) {
+            let [player, score] = thisScore;
             if (score) {
                 score = +score;
             }
             let thisUser = await User.findById(player);
-            matchResults.push({name: thisUser.name, score, userId: player});
+            matchResults.push({name: thisUser.name, score: score, userId: player});
 
             let userInGroup = groupResults.find(user => user.userId === player);
             if (!userInGroup) {
@@ -93,6 +95,7 @@ const enterMatchResults = async (req, res, next) => {
                     allResults: [],
                     average: 0,
                     total: 0,
+                    matchesPlayed: 0
                 });
             }
 
@@ -101,16 +104,15 @@ const enterMatchResults = async (req, res, next) => {
                 userInGroup.allResults.push({matchId, score});
             }
 
-            let total = 0;
-            let counter = 0;
-            for (const result of userInGroup.allResults) {
-                if (result.score) {
-                    total += result.score;
-                    counter += 1;
-                }
+            if (score) {
+                userInGroup.total += score;
+                userInGroup.matchesPlayed += 1;
             }
-            userInGroup.average = total / counter;
-            userInGroup.total += total;
+
+            if (userInGroup.matchesPlayed > 0) {
+                userInGroup.average = Math.round(userInGroup.total / userInGroup.matchesPlayed);
+            }
+
         }
         match.results = matchResults;
         await match.save();
@@ -119,6 +121,7 @@ const enterMatchResults = async (req, res, next) => {
         await group.save();
 
     } catch (err) {
+        console.log("hier");
         return res.status(500).json({message: "Er is iets fout gegaan, probeer het opnieuw."});
     }
 
@@ -194,10 +197,6 @@ const deleteMatch = async (req, res, next) => {
         return res.status(404).json({message: "Geen wedstrijd gevonden."});
     }
 
-    if (!!match.results.length) {
-        return res.status(403).json({message: "Kan geen wedstrijd met resultaten verwijderen."});
-    }
-
     let group;
     try {
         group = await Group.findById(groupId);
@@ -229,19 +228,30 @@ const deleteMatch = async (req, res, next) => {
     }
 
     try {
-        // await group.matches.pull(match);
-        console.log("group standings before match removal")
-
         for (const user of group.standings) {
             let index = user.allResults.findIndex(thisUser => thisUser.matchId === matchId);
-            console.log(index);
-            console.log(user.allResults[index])
+            if (user.allResults[index]) {
+                let score = user.allResults[index].score
+                user.allResults.splice(index, 1);
+
+                if (score) {
+                    user.total -= score;
+                    user.matchesPlayed -= 1;
+                }
+
+                if (user.matchesPlayed > 0) {
+                    user.average = Math.round(user.total / user.matchesPlayed);
+                } else {
+                    user.average = 0;
+                    user.total = 0;
+                }
+            }
         }
 
-        console.log("group standing after match removal");
-
-        // await group.save();
-        // await Match.findByIdAndDelete(match.id);
+        await group.matches.pull(match);
+        group.markModified('standings');
+        await group.save();
+        await Match.findByIdAndDelete(match.id);
     } catch (e) {
         return res.status(500).json({message: "Kon wedstrijd niet verwijderen, probeer het opnieuw."});
     }
