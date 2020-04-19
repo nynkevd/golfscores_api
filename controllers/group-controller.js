@@ -52,7 +52,13 @@ const getGroupItemInfo = async (req, res, next) => {
         topThree.push({name: player.name, average: player.average})
     }
 
-    return res.status(200).send({groupName: group.title, standings: topThree})
+    let nextMatch = await Match.findOne({group: group, date: {$gt: moment().format()}}).sort({date: 'asc'});
+    nextMatch = moment(nextMatch).format('DD-MM-YYYY');
+    if (nextMatch === "Invalid date") {
+        nextMatch = null;
+    }
+
+    return res.status(200).send({groupName: group.title, standings: topThree, nextMatch})
 };
 
 const getGroupInfo = async (req, res, next) => {
@@ -81,10 +87,18 @@ const getGroupInfo = async (req, res, next) => {
     }
 
     //TODO: Remove this and change to complete results
-    let players = [];
-    for (const player of group.players) {
-        let thisPlayer = await User.findById(player._id);
-        players.push({name: thisPlayer.name, id: thisPlayer._id})
+    // let players = [];
+    // for (const player of group.players) {
+    //     let thisPlayer = await User.findById(player._id);
+    //     players.push({name: thisPlayer.name, id: thisPlayer._id})
+    // }
+
+    let sortedStandings = group.standings.sort((a, b) => {
+        return b.average - a.average;
+    });
+    let standings = [];
+    for (const position of sortedStandings) {
+        standings.push({name: position.name, average: position.average});
     }
 
     let matches = [];
@@ -156,7 +170,7 @@ const getGroupInfo = async (req, res, next) => {
         return res.status(500).send({message: 'Probeer het opnieuw.'});
     }
 
-    return res.status(200).send({groupName: group.title, players, isAdmin, matchToday, matches, prevMatches});
+    return res.status(200).send({groupName: group.title, standings, isAdmin, matchToday, matches, prevMatches});
 
 };
 
@@ -456,8 +470,19 @@ const removeGroup = async (req, res, next) => {
         }
     }
 
-    //TODO Remove Matches and result from matches when removing group
+    let matches = selectedGroup['matches'];
+    for (const match of matches) {
+        await Match.findByIdAndDelete(match);
+    }
 
+    let invites = selectedGroup['invites'];
+    for (const invite of invites) {
+        let thisInvite = await Invite.findById(invite);
+        let thisUser = await User.findById(thisInvite.user);
+        thisUser.invites.pull(invite);
+        await thisUser.save();
+        await Invite.findByIdAndDelete(invite);
+    }
 
     try {
         await Group.findByIdAndDelete(groupId);
@@ -501,13 +526,6 @@ const editGroup = async (req, res, next) => {
 
     return res.status(200).json({message: "Succesvol de groep aangepast."});
 };
-
-nestedSort = (prop1, prop2 = null, direction = 'asc') => (e1, e2) => {
-    const a = prop2 ? e1[prop1][prop2] : e1[prop1],
-        b = prop2 ? e2[prop1][prop2] : e2[prop1],
-        sortOrder = direction === "asc" ? 1 : -1
-    return (a < b) ? -sortOrder : (a > b) ? sortOrder : 0;
-}
 
 exports.checkIfAdmin = checkIfAdmin;
 exports.getGroupInfo = getGroupInfo;
