@@ -27,9 +27,7 @@ app.use("/api/invite", inviteRoutes);
 mongoose
     .connect(`mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@golfscores-97j88.azure.mongodb.net/${process.env.DB_DATABASE}?retryWrites=true&w=majority`)
     .then(() => {
-        app.listen(5000, "localhost", () => {
-            console.log("Running")
-        });
+        app.listen(process.env.PORT || 5000);
     })
     .catch((err) => {
         console.log("Something went wrong!")
