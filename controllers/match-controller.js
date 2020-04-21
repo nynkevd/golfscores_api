@@ -175,7 +175,6 @@ const addMatches = async (req, res, next) => {
         }
     }
 
-    // return res.status(201).json({message: `Succesvol ${successful} nieuwe wedstrijd(en) aangemaakt. ${existing ? existing : ""}`})
     return res.status(201).json({message: `Succesvol een nieuwe wedstrijd aangemaakt.`})
 
 };
@@ -231,7 +230,7 @@ const deleteMatch = async (req, res, next) => {
         for (const user of group.standings) {
             let index = user.allResults.findIndex(thisUser => thisUser.matchId === matchId);
             if (user.allResults[index]) {
-                let score = user.allResults[index].score
+                let score = user.allResults[index].score;
                 user.allResults.splice(index, 1);
 
                 if (score) {

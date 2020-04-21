@@ -52,7 +52,10 @@ const getGroupItemInfo = async (req, res, next) => {
         topThree.push({name: player.name, average: player.average})
     }
 
-    let nextMatch = await Match.findOne({group: group, date: {$gt: moment().format()}}).sort({date: 'asc'});
+    let nextMatch = await Match.findOne({
+        group: group,
+        date: {$gt: moment().subtract(1, 'Days').format()}
+    }).sort({date: 'asc'});
     nextMatch = moment(nextMatch).format('DD-MM-YYYY');
     if (nextMatch === "Invalid date") {
         nextMatch = null;
@@ -85,13 +88,6 @@ const getGroupInfo = async (req, res, next) => {
     if (group.admins.includes(userId)) {
         isAdmin = true;
     }
-
-    //TODO: Remove this and change to complete results
-    // let players = [];
-    // for (const player of group.players) {
-    //     let thisPlayer = await User.findById(player._id);
-    //     players.push({name: thisPlayer.name, id: thisPlayer._id})
-    // }
 
     let sortedStandings = group.standings.sort((a, b) => {
         return b.average - a.average;
@@ -385,6 +381,8 @@ const removePlayer = async (req, res, next) => {
         if (isAdmin) {
             selectedGroup.admins.pull(selectedPlayer);
         }
+        let index = selectedGroup.standings.findIndex(thisUser => thisUser.userId === selectedPlayer.id);
+        selectedGroup.standings.splice(index, 1);
         await selectedGroup.save();
 
         selectedPlayer.groups.pull(selectedGroup);
@@ -532,7 +530,6 @@ exports.getGroupInfo = getGroupInfo;
 exports.getGroupAdminInfo = getGroupAdminInfo;
 exports.getGroupItemInfo = getGroupItemInfo;
 exports.createGroup = createGroup;
-// exports.addPlayerToGroup = addPlayerToGroup;
 exports.addAdminToGroup = addAdminToGroup;
 exports.removePlayer = removePlayer;
 exports.removeAdmin = removeAdmin;

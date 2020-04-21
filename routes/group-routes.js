@@ -15,11 +15,6 @@ router.post("/create", [
     check('invites').isArray()
 ], groupController.createGroup);
 
-// router.post("/addplayer", [
-//     check('newPlayers').isArray({min: 1}),
-//     check('groupId').not().isEmpty()
-// ], groupController.addPlayerToGroup);
-
 router.post("/addadmin", [
     check('newAdminId').not().isEmpty(),
     check('groupId').not().isEmpty()
